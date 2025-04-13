@@ -8,5 +8,6 @@
   "requirements": ["requests", "loguru"],
   "version": "0.1.0",
   "iot_class": "cloud_polling",
-  "config_flow": true
+  "config_flow": true,
+  "icon": "asset/laundry_checker-icon.png"
 } 
