@@ -34,7 +34,7 @@
 
 ### 手动安装
 
-1. 下载此仓库的最新版本
+1. 前往[releases](https://github.com/renhai-lab/laundry_checker/releases)下载此仓库的最新版本
 2. 将`custom_components/laundry_checker`文件夹复制到你的Home Assistant配置目录下的`custom_components`文件夹中
 3. 重启Home Assistant
 
