@@ -64,20 +64,51 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
     async def _async_update_data(self) -> Dict[str, Any]:
         """Update data via library."""
         try:
+            _LOGGER.debug("开始更新洗衣检查器数据")
+            
             # 获取未来三天的天气数据
             weather_data = await self.hass.async_add_executor_job(
                 self.get_weather_data, 3
             )
             if not weather_data:
-                raise ConfigEntryAuthFailed("Failed to get weather data")
+                _LOGGER.error("无法获取天气数据")
+                raise ConfigEntryAuthFailed("获取天气数据失败")
 
-            tomorrow = datetime.now().date() + timedelta(days=1)
+            today = datetime.now().date()
+            tomorrow = today + timedelta(days=1)
+            
+            # 从weather_data中获取今天和明天的数据
+            today_data = weather_data.get(today, [])
             tomorrow_data = weather_data.get(tomorrow, [])
+            
+            if not today_data:
+                _LOGGER.warning("无法获取今天的天气数据")
+                today_data = []
 
-            # 先处理明天的天气适宜性
+            if not tomorrow_data:
+                _LOGGER.warning("无法获取明天的天气数据")
+                tomorrow_data = []
+
+            # 处理今天的天气适宜性
             is_suitable, message, stats = await self.hass.async_add_executor_job(
+                self.check_weather_suitable, today_data
+            )
+
+            # 处理明天的天气适宜性
+            tomorrow_suitable, tomorrow_message, tomorrow_stats = await self.hass.async_add_executor_job(
                 self.check_weather_suitable, tomorrow_data
             )
+
+            # 添加风力信息
+            for hour in today_data:
+                stats.setdefault("wind_conditions", set()).add(
+                    f"{hour['windDir']}{hour['windScale']}"
+                )
+
+            for hour in tomorrow_data:
+                tomorrow_stats.setdefault("wind_conditions", set()).add(
+                    f"{hour['windDir']}{hour['windScale']}"
+                )
 
             # 处理未来几天的预报
             future_days = []
@@ -97,94 +128,121 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                         }
                     )
 
-            # 添加风力信息
-            wind_conditions = set()
-            for hour in tomorrow_data:
-                wind_conditions.add(f"{hour['windDir']}{hour['windScale']}")
-            stats["wind_conditions"] = wind_conditions
-
             # 构建详细的多天预报消息
             tomorrow_str = tomorrow.strftime("%Y-%m-%d")
-            detailed_message = f"未来三天晾衣建议 ({tomorrow_str})\n\n"
+            detailed_message = f"🌈 未来三天晾衣预报 ({tomorrow_str})\n\n"
 
             # 明天的详细信息
+            weather_emoji = "🌞" if "晴" in tomorrow_stats['weather_conditions'] else "⛅"
             tomorrow_detail = (
-                f"明天：{'✅ 适合' if is_suitable else '❌ 不适合'}晾衣服\n"
-                f"时间段: {self.start_hour}:00 - {self.end_hour}:00\n"
-                f"天气状况: {', '.join(stats['weather_conditions'])}\n"
-                f"平均湿度: {stats['avg_humidity']:.1f}%\n"
+                f"明天：{weather_emoji} {'✨ 非常适合' if tomorrow_suitable else '😔 不太适合'}晾衣服\n"
+                f"⏰ 时间段: {self.start_hour}:00 - {self.end_hour}:00\n"
+                f"🌤️ 天气状况: {', '.join(tomorrow_stats['weather_conditions'])}\n"
+                f"💧 平均湿度: {tomorrow_stats['avg_humidity']:.1f}%\n"
             )
 
             # 添加晾晒指数信息（如果有）
-            if "drying_index_text" in stats:
-                tomorrow_detail += f"晾晒指数: {stats['drying_index_text']}\n"
+            if "drying_index_text" in tomorrow_stats:
+                tomorrow_detail += f"📊 晾晒指数: {tomorrow_stats['drying_index_text']}\n"
 
-            if is_suitable:
+            if tomorrow_suitable:
+                # 根据晾干时间给出评价
+                drying_time = tomorrow_stats['estimated_drying_time']
+                if drying_time <= 2:
+                    time_comment = "超快速干！"
+                elif drying_time <= 3:
+                    time_comment = "干得很快~"
+                else:
+                    time_comment = "正常晾干"
+                
+                # 根据最佳晾晒时间给出提示
+                best_hour = int(tomorrow_stats['best_drying_period'].split(':')[0])
+                if best_hour < 10:
+                    timing_tip = "早晨阳光正好"
+                elif best_hour < 14:
+                    timing_tip = "正午阳光充足"
+                else:
+                    timing_tip = "下午温和适宜"
+
                 tomorrow_detail += (
-                    f"预计晾干时间: {stats['estimated_drying_time']}小时\n"
-                    f"最佳晾晒时间: {stats['best_drying_period']}\n"
-                    f"风力情况：{', '.join(stats['wind_conditions'])}\n"
+                    f"⏱️ 预计晾干时间: {drying_time}小时 ({time_comment})\n"
+                    f"🎯 最佳晾晒时间: {tomorrow_stats['best_drying_period']} ({timing_tip})\n"
+                    f"🌪️ 风力情况：{', '.join(tomorrow_stats['wind_conditions'])}\n"
                 )
             else:
-                reason = message.replace("不建议洗衣服，原因：", "")
-                tomorrow_detail += f"原因: {reason}\n"
+                reason = tomorrow_message.replace("今天不太适合晾衣服...\n原因：\n", "").split("\n")[0]
+                tomorrow_detail += f"❗ {reason}\n"
 
-            detailed_message += tomorrow_detail + "\n后两天预报：\n"
+            detailed_message += tomorrow_detail + "\n📅 后两天预报：\n"
 
             # 添加后两天的简要信息
             for future_day in future_days:
-                emoji = "✅" if future_day["is_suitable"] else "❌"
-                detailed_message += f"{future_day['date']}：{emoji} "
+                weather_emoji = "🌞" if any("晴" in w for w in future_day['stats']['weather_conditions']) else "⛅"
+                emoji = "✨" if future_day["is_suitable"] else "😔"
+                detailed_message += f"{future_day['date']}：{weather_emoji} {emoji} "
 
                 if future_day["is_suitable"]:
-                    detailed_message += f"适合晾衣（{future_day['stats']['estimated_drying_time']}小时）\n"
+                    drying_time = future_day['stats']['estimated_drying_time']
+                    if drying_time <= 2:
+                        time_comment = "超快速干"
+                    elif drying_time <= 3:
+                        time_comment = "干得很快"
+                    else:
+                        time_comment = "正常晾干"
+                    detailed_message += f"适合晾衣（{drying_time}小时 - {time_comment}）\n"
                 else:
-                    reason = future_day["message"].replace("不建议洗衣服，原因：", "")
+                    reason = future_day["message"].replace("今天不太适合晾衣服...\n原因：\n", "").split("\n")[0]
                     detailed_message += f"不适合（{reason}）\n"
+
+            _LOGGER.debug("数据更新完成，今天适合晾晒: %s, 明天适合晾晒: %s", 
+                         is_suitable, tomorrow_suitable)
 
             return {
                 "is_suitable": is_suitable,
                 "message": message,
                 "stats": stats,
+                "tomorrow_stats": {
+                    "is_suitable": tomorrow_suitable,
+                    "message": tomorrow_message,
+                    "detailed_message": detailed_message,
+                    **tomorrow_stats
+                },
                 "last_update": datetime.now(),
-                "detailed_message": detailed_message,
                 "multi_day_forecast": True,
                 "tomorrow_detail": tomorrow_detail,
                 "future_days": future_days,
             }
 
         except Exception as err:
-            _LOGGER.error("Error updating laundry checker data: %s", err)
+            _LOGGER.error("更新洗衣检查器数据时出错: %s", err, exc_info=True)
             raise
 
     def get_weather_data(self, days: int = 3) -> Dict:
         """Get weather data from QWeather API."""
         try:
-            url = "https://devapi.qweather.com/v7/weather/72h"
+            url = "https://devapi.qweather.com/v7/weather/24h"  # 先获取24小时数据
             params = {
                 "location": self._location,
                 "key": self.qweather_key,
             }
 
-            _LOGGER.debug("正在请求和风天气API: %s, 参数: %s", url, params)
-
+            _LOGGER.debug("正在请求和风天气24小时API: %s, 参数: %s", url, params)
             response = requests.get(url, params=params)
-
-            # 记录详细的响应信息，帮助排查问题
-            _LOGGER.debug("API响应状态码: %s", response.status_code)
 
             if response.status_code != 200:
                 _LOGGER.error(
-                    "API请求失败，状态码: %s, 响应内容: %s",
+                    "24小时API请求失败，状态码: %s, 响应内容: %s",
                     response.status_code,
                     response.text,
                 )
                 return None
 
             data = response.json()
+            daily_data = {}
 
             if data.get("code") == "200":
-                daily_data = {}
+                today = datetime.now().date()
+                # 处理今天的24小时数据
                 for hour in data.get("hourly", []):
                     date = datetime.strptime(hour["fxTime"], "%Y-%m-%dT%H:%M%z").date()
                     if date not in daily_data:
@@ -196,82 +254,94 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                     if self.start_hour <= hour_time <= self.end_hour:
                         daily_data[date].append(hour)
 
-                today = datetime.now().date()
-                future_dates = sorted(daily_data.keys())
-                future_dates = [d for d in future_dates if d > today][:days]
+            # 获取72小时预报数据（用于明天和后天）
+            url_72h = "https://devapi.qweather.com/v7/weather/72h"
+            _LOGGER.debug("正在请求和风天气72小时API: %s, 参数: %s", url_72h, params)
+            response_72h = requests.get(url_72h, params=params)
 
-                # 获取每日紫外线指数
-                try:
-                    uv_url = "https://devapi.qweather.com/v7/weather/3d"
-                    uv_response = requests.get(uv_url, params=params)
-                    if uv_response.status_code == 200:
-                        uv_data = uv_response.json()
-                        if uv_data.get("code") == "200":
-                            for daily in uv_data.get("daily", []):
+            if response_72h.status_code == 200:
+                data_72h = response_72h.json()
+                if data_72h.get("code") == "200":
+                    for hour in data_72h.get("hourly", []):
+                        date = datetime.strptime(hour["fxTime"], "%Y-%m-%dT%H:%M%z").date()
+                        if date > today:  # 只处理未来日期的数据
+                            if date not in daily_data:
+                                daily_data[date] = []
+
+                            hour_time = datetime.strptime(
+                                hour["fxTime"], "%Y-%m-%dT%H:%M%z"
+                            ).hour
+                            if self.start_hour <= hour_time <= self.end_hour:
+                                daily_data[date].append(hour)
+
+            # 获取每日紫外线指数
+            try:
+                uv_url = "https://devapi.qweather.com/v7/weather/3d"
+                uv_response = requests.get(uv_url, params=params)
+                if uv_response.status_code == 200:
+                    uv_data = uv_response.json()
+                    if uv_data.get("code") == "200":
+                        for daily in uv_data.get("daily", []):
+                            date = datetime.strptime(
+                                daily["fxDate"], "%Y-%m-%d"
+                            ).date()
+                            if date in daily_data:
+                                uv_index = daily.get("uvIndex", "0")
+                                for hour_data in daily_data[date]:
+                                    hour_data["uvIndex"] = uv_index
+                                _LOGGER.debug(
+                                    "添加紫外线指数 %s 到日期 %s", uv_index, date
+                                )
+            except Exception as uv_err:
+                _LOGGER.error("获取UV指数时出错: %s", uv_err)
+
+            # 获取晾晒指数
+            try:
+                indices_url = "https://devapi.qweather.com/v7/indices/1d"
+                indices_params = {
+                    "location": self._location,
+                    "key": self.qweather_key,
+                    "type": DRYING_INDEX_TYPE,
+                }
+                indices_response = requests.get(indices_url, params=indices_params)
+
+                if indices_response.status_code == 200:
+                    indices_data = indices_response.json()
+                    if indices_data.get("code") == "200" and indices_data.get("daily"):
+                        for index in indices_data.get("daily", []):
+                            if index.get("type") == DRYING_INDEX_TYPE:
                                 date = datetime.strptime(
-                                    daily["fxDate"], "%Y-%m-%d"
+                                    index["date"], "%Y-%m-%d"
                                 ).date()
                                 if date in daily_data:
-                                    uv_index = daily.get("uvIndex", "0")
+                                    drying_index = {
+                                        "name": index.get("name", "晾晒指数"),
+                                        "category": index.get("category", ""),
+                                        "level": index.get("level", ""),
+                                        "text": index.get("text", ""),
+                                    }
                                     for hour_data in daily_data[date]:
-                                        hour_data["uvIndex"] = uv_index
+                                        hour_data["dryingIndex"] = drying_index
                                     _LOGGER.debug(
-                                        "添加紫外线指数 %s 到日期 %s", uv_index, date
+                                        "添加晾晒指数 %s 到日期 %s",
+                                        drying_index["category"],
+                                        date,
                                     )
-                except Exception as uv_err:
-                    _LOGGER.error("获取UV指数时出错: %s", uv_err)
+            except Exception as indices_err:
+                _LOGGER.error("获取晾晒指数时出错: %s", indices_err)
 
-                # 获取晾晒指数
-                try:
-                    indices_url = "https://devapi.qweather.com/v7/indices/1d"
-                    indices_params = {
-                        "location": self._location,
-                        "key": self.qweather_key,
-                        "type": DRYING_INDEX_TYPE,  # 晾晒指数类型ID
-                    }
-                    indices_response = requests.get(indices_url, params=indices_params)
+            # 检查并记录获取到的数据
+            for date, data in daily_data.items():
+                _LOGGER.debug("日期 %s 获取到 %d 条小时数据", date, len(data))
 
-                    if indices_response.status_code == 200:
-                        indices_data = indices_response.json()
-                        if indices_data.get("code") == "200" and indices_data.get(
-                            "daily"
-                        ):
-                            for index in indices_data.get("daily", []):
-                                if index.get("type") == DRYING_INDEX_TYPE:
-                                    # 获取晾晒指数
-                                    date = datetime.strptime(
-                                        index["date"], "%Y-%m-%d"
-                                    ).date()
-                                    if date in daily_data:
-                                        drying_index = {
-                                            "name": index.get("name", "晾晒指数"),
-                                            "category": index.get("category", ""),
-                                            "level": index.get("level", ""),
-                                            "text": index.get("text", ""),
-                                        }
-                                        # 为当天每个小时数据添加晾晒指数
-                                        for hour_data in daily_data[date]:
-                                            hour_data["dryingIndex"] = drying_index
-                                        _LOGGER.debug(
-                                            "添加晾晒指数 %s 到日期 %s",
-                                            drying_index["category"],
-                                            date,
-                                        )
-                except Exception as indices_err:
-                    _LOGGER.error("获取晾晒指数时出错: %s", indices_err)
-
-                return {date: daily_data[date] for date in future_dates}
-            else:
-                error_msg = f"API返回错误码: {data.get('code')}, 错误信息: {data.get('message', '未知错误')}"
-                _LOGGER.error("Failed to get weather data: %s", error_msg)
-                return None
+            return daily_data
 
         except Exception as err:
-            _LOGGER.error("Error getting weather data: %s", err)
+            _LOGGER.error("获取天气数据时出错: %s", err, exc_info=True)
             return None
 
     def check_weather_suitable(self, hourly_data: list) -> tuple:
-        """Check if weather is suitable for laundry."""
+        """Check if weather is suitable for laundry based on hourly data."""
         if not hourly_data:
             return False, "无法获取天气数据", {}
 
@@ -281,6 +351,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             "has_precipitation": False,
             "max_pop": 0,
             "weather_conditions": set(),
+            "wind_conditions": set(),
             "estimated_drying_time": 0,
             "best_drying_period": "",
             "uv_index": 0,
@@ -288,95 +359,196 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
 
         total_humidity = 0
         valid_hours = 0
+        suitable_periods = []
+        current_period_start = None
+        current_period_length = 0
 
-        for hour in hourly_data:
-            humidity = float(hour["humidity"])
-            precip = float(hour["precip"])
-            pop = int(hour.get("pop", "0"))
+        # Sort data by time to ensure correct period calculation
+        hourly_data.sort(key=lambda x: datetime.strptime(x["fxTime"], "%Y-%m-%dT%H:%M%z"))
 
-            # 获取紫外线指数
-            if "uvIndex" in hour:
-                uv_index = int(hour["uvIndex"])
-                stats["uv_index"] = max(stats["uv_index"], uv_index)
+        for i, hour in enumerate(hourly_data):
+            try:
+                hour_dt = datetime.strptime(hour["fxTime"], "%Y-%m-%dT%H:%M%z")
+                hour_time = hour_dt.hour
+                humidity = float(hour["humidity"])
+                precip = float(hour["precip"])
+                pop = int(hour.get("pop", "0"))
+                weather_text = hour["text"]
+                wind_scale = hour.get("windScale", "0")
+                wind_dir = hour.get("windDir", "未知")
 
-            # 获取晾晒指数
-            if "dryingIndex" in hour:
-                drying_index = hour["dryingIndex"]
-                stats["drying_index"] = drying_index["name"]
-                stats["drying_index_level"] = drying_index["level"]
-                stats["drying_index_category"] = drying_index["category"]
-                stats["drying_index_text"] = drying_index["text"]
+                stats["weather_conditions"].add(weather_text)
+                stats["wind_conditions"].add(f"{wind_dir} {wind_scale}级")
 
-            total_humidity += humidity
-            valid_hours += 1
-            stats["max_pop"] = max(stats["max_pop"], pop)
-            stats["weather_conditions"].add(hour["text"])
+                # 获取紫外线指数 (use max for the day)
+                if "uvIndex" in hour:
+                    uv_index_val = int(hour["uvIndex"])
+                    if uv_index_val > stats["uv_index"]:
+                        stats["uv_index"] = uv_index_val
 
-            if precip > 0:
-                stats["has_precipitation"] = True
+                total_humidity += humidity
+                valid_hours += 1
+                stats["max_pop"] = max(stats["max_pop"], pop)
 
-            if (
-                humidity <= self.max_suitable_humidity
-                and precip == 0
-                and hour["text"] not in self.unsuitable_weather_types
-                and pop <= self.max_pop
-            ):
-                stats["suitable_hours"] += 1
+                if precip > 0:
+                    stats["has_precipitation"] = True
+
+                # Check suitability for this hour
+                is_hour_suitable = (
+                    humidity <= self.max_suitable_humidity
+                    and precip == 0
+                    and weather_text not in self.unsuitable_weather_types
+                    and pop <= self.max_pop
+                    # Ensure the hour is within the user-defined start/end times
+                    and self.start_hour <= hour_time < self.end_hour
+                )
+
+                if is_hour_suitable:
+                    stats["suitable_hours"] += 1
+                    if current_period_start is None:
+                        current_period_start = hour_dt # Store datetime object
+                    current_period_length += 1
+                else:
+                    # End of a suitable period (or still unsuitable)
+                    if current_period_start is not None:
+                        # Adjust end time: period ends *before* this unsuitable hour
+                        period_end_dt = current_period_start + timedelta(hours=current_period_length -1)
+                        suitable_periods.append({
+                            "start": current_period_start,
+                            "end": period_end_dt,
+                            "length": current_period_length
+                        })
+                        current_period_start = None
+                        current_period_length = 0
+
+            except (ValueError, KeyError) as e:
+                _LOGGER.warning(f"跳过处理小时数据时出错: {hour}, 错误: {e}")
+                continue # Skip this hour if data is malformed
+
+        # Check if the last hour ended a suitable period
+        if current_period_start is not None:
+            period_end_dt = current_period_start + timedelta(hours=current_period_length -1)
+            suitable_periods.append({
+                "start": current_period_start,
+                "end": period_end_dt,
+                "length": current_period_length
+            })
 
         if valid_hours > 0:
             stats["avg_humidity"] = total_humidity / valid_hours
-            best_weather = min(hourly_data, key=lambda x: float(x["humidity"]))
-            stats["estimated_drying_time"] = self.estimate_drying_time(best_weather)
-            best_hour = datetime.strptime(
-                best_weather["fxTime"], "%Y-%m-%dT%H:%M%z"
-            ).hour
-            stats["best_drying_period"] = f"{best_hour}:00"
+            # Estimate drying time based on overall conditions for the day if needed
+            # For now, let's use the first hour's data as a proxy if no best period found
+            first_valid_hour_data = next((h for h in hourly_data if 'humidity' in h), None)
+            if first_valid_hour_data:
+                stats["estimated_drying_time"] = self.estimate_drying_time(first_valid_hour_data)
 
-        # 判断条件和原因
+        # Find the longest suitable period
+        if suitable_periods:
+            longest_period = max(suitable_periods, key=lambda p: p["length"])
+            start_hour_str = longest_period["start"].strftime("%H:00")
+            # End hour should be the *start* of the hour following the period
+            end_hour_dt = longest_period["end"] + timedelta(hours=1)
+            end_hour_str = end_hour_dt.strftime("%H:00")
+
+            # Ensure end hour doesn't exceed the user's end_hour setting
+            if end_hour_dt.hour > self.end_hour or (end_hour_dt.hour == self.end_hour and end_hour_dt.minute > 0):
+                end_hour_str = f"{self.end_hour:02d}:00"
+                # Adjust start if the period was truncated? Maybe not needed if logic is correct.
+
+            stats["best_drying_period"] = f"{start_hour_str} - {end_hour_str}"
+
+            # Recalculate estimated drying time based on the best period's conditions
+            best_period_hours = [h for h in hourly_data if longest_period["start"] <= datetime.strptime(h["fxTime"], "%Y-%m-%dT%H:%M%z") <= longest_period["end"]]
+            if best_period_hours:
+                # Use the average condition or the best hour within the best period?
+                # Let's use the average humidity of the best period for drying time estimate
+                best_period_avg_humidity = sum(float(h['humidity']) for h in best_period_hours) / len(best_period_hours)
+                # Create a proxy hour dict for estimate_drying_time
+                proxy_hour_for_drying = best_period_hours[0].copy() # Get structure
+                proxy_hour_for_drying['humidity'] = str(best_period_avg_humidity)
+                # Find max UV within the best period
+                max_uv_in_best = 0
+                for h in best_period_hours:
+                    if 'uvIndex' in h:
+                        max_uv_in_best = max(max_uv_in_best, int(h['uvIndex']))
+                proxy_hour_for_drying['uvIndex'] = str(max_uv_in_best)
+
+                stats["estimated_drying_time"] = self.estimate_drying_time(proxy_hour_for_drying)
+
+
+        # Determine final suitability and message
         reasons = []
-        is_suitable = True
+        is_suitable = False # Default to False unless a suitable period >= min_hours is found
 
-        if stats["suitable_hours"] < self.min_suitable_hours:
-            is_suitable = False
-            reasons.append(
-                f"适合晾晒的时间不足（仅{stats['suitable_hours']}小时，需要{self.min_suitable_hours}小时）"
-            )
-
-        if stats["has_precipitation"]:
-            is_suitable = False
-            reasons.append("预计有降水")
-
-        if stats["avg_humidity"] > self.max_suitable_humidity:
-            is_suitable = False
-            reasons.append(f"平均湿度过高 ({stats['avg_humidity']:.1f}%)")
-
-        if stats["max_pop"] > self.max_pop:
-            is_suitable = False
-            reasons.append(f"降水概率较高 ({stats['max_pop']}%)")
-
-        for weather in stats["weather_conditions"]:
-            if weather in self.unsuitable_weather_types:
+        # Check if any suitable period meets the minimum required hours
+        if any(p["length"] >= self.min_suitable_hours for p in suitable_periods):
+            is_suitable = True
+            # Now check other conditions that might override suitability
+            if stats["has_precipitation"]:
                 is_suitable = False
-                reasons.append(f"预计有{weather}")
-                break
-
-        # 生成结果消息
-        if is_suitable:
-            message = [
-                f"建议洗衣服，未来{self.end_hour-self.start_hour}小时内有{stats['suitable_hours']}小时适合晾晒",
-                f"预计衣服需要{stats['estimated_drying_time']}小时晾干",
-                f"最佳晾晒时间: {stats['best_drying_period']}",
-            ]
-
-            # 添加晾晒指数信息
-            if "drying_index_text" in stats:
-                message.append(f"晾晒指数: {stats['drying_index_text']}")
-
-            message = "\n".join(message)
+                reasons.append("预计有降水")
+            # Add other checks if needed (e.g., overall high avg humidity despite a window?)
         else:
-            message = f"不建议洗衣服，原因：{', '.join(reasons)}"
+            if stats["suitable_hours"] < self.min_suitable_hours:
+                reasons.append(
+                    f"连续适合晾晒的时间不足（最长 {max(p['length'] for p in suitable_periods) if suitable_periods else 0} 小时，需要{self.min_suitable_hours}小时）"
+                )
+            if not suitable_periods and valid_hours > 0: # No suitable periods found at all
+                if stats["avg_humidity"] > self.max_suitable_humidity:
+                    reasons.append(f"平均湿度过高 ({stats['avg_humidity']:.1f}%)")
+                if stats["max_pop"] > self.max_pop:
+                    reasons.append(f"降水概率较高 ({stats['max_pop']}%)")
+                # Check unsuitable weather types if no suitable periods found
+                unsuitable_types_found = stats["weather_conditions"].intersection(self.unsuitable_weather_types)
+                if unsuitable_types_found:
+                    reasons.append(f"预计有{'、'.join(unsuitable_types_found)}")
+            elif stats["has_precipitation"]:
+                # Precipitation might occur outside the 'suitable' windows
+                reasons.append("预计有降水时段")
 
-        return is_suitable, message, stats
+
+        # Generate result message based on the *final* is_suitable status
+        if is_suitable:
+            weather_emoji = "🌞" if "晴" in stats["weather_conditions"] else "⛅"
+            wind_emoji = "🌪️" if any(scale.isdigit() and int(scale.split('-')[0]) >= 5 for cond in stats["wind_conditions"] for scale in cond.split() if scale.endswith('级')) else "🍃"
+
+            drying_time = stats['estimated_drying_time']
+            if drying_time <= 2:
+                time_comment = "速干模式已开启！"
+            elif drying_time <= 3:
+                time_comment = "晾晒效果杠杠的~"
+            else:
+                time_comment = "稍微需要点耐心哦"
+
+            # Use the calculated best_drying_period if available
+            if stats["best_drying_period"]:
+                timing_tip = "抓紧这个时间段！"
+                message = [
+                    f"{weather_emoji} 今天适合晾衣！",
+                    f"最佳晾晒时间段：{stats['best_drying_period']} ({timing_tip})",
+                    f"预计晾干时间：{drying_time:.1f}小时 ({time_comment})",
+                    f"{wind_emoji} 风力情况：" + "，".join(sorted(list(stats["wind_conditions"]))),
+                ]
+            else: # Should not happen if is_suitable is True based on new logic, but as fallback
+                message = [
+                    f"{weather_emoji} 今天整体天气不错，适合晾晒！",
+                    f"预计晾干时间：{drying_time:.1f}小时 ({time_comment})",
+                    f"{wind_emoji} 风力情况：" + "，".join(sorted(list(stats["wind_conditions"]))),
+                ]
+
+            # 添加紫外线提醒
+            if stats["uv_index"] > 7:
+                message.append(f"☀️ 注意：紫外线较强 ({stats['uv_index']})，深色衣物可能褪色。")
+
+        else:
+            # Not suitable
+            weather_emoji = "🌧️" if stats["has_precipitation"] or any(wt in self.unsuitable_weather_types for wt in stats["weather_conditions"]) else "☁️"
+            message = [f"{weather_emoji} 今天不太适合晾衣服。主要原因："] + reasons
+            # Add extra info even if unsuitable
+            message.append(f"(适合小时: {stats['suitable_hours']}, 平均湿度: {stats['avg_humidity']:.1f}%, 最高降水概率: {stats['max_pop']}%)")
+
+
+        return is_suitable, "\n".join(message), stats
 
     def estimate_drying_time(self, weather_data: Dict) -> float:
         """Estimate drying time based on weather conditions."""

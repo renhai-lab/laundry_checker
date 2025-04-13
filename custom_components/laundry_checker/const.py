@@ -17,8 +17,8 @@ CONF_SCAN_INTERVAL = "scan_interval"
 CONF_USE_HA_LOCATION = "use_ha_location"
 
 # 默认值
-DEFAULT_LOCATION = "120.15,30.28"  # 默认经纬度坐标
-DEFAULT_MAX_SUITABLE_HUMIDITY = 85.0
+DEFAULT_LOCATION = "112.15,20.28"  # 默认经纬度坐标
+DEFAULT_MAX_SUITABLE_HUMIDITY = 75.0
 DEFAULT_MIN_SUITABLE_HOURS = 6
 DEFAULT_MAX_POP = 0
 DEFAULT_START_HOUR = 6
@@ -63,14 +63,10 @@ ATTR_MULTI_DAY_FORECAST = "multi_day_forecast"
 ATTR_TOMORROW_DETAIL = "tomorrow_detail"
 ATTR_FUTURE_DAYS = "future_days"
 ATTR_UV_INDEX = "uv_index"
-ATTR_DRYING_INDEX = "drying_index"
-ATTR_DRYING_INDEX_LEVEL = "drying_index_level"
-ATTR_DRYING_INDEX_CATEGORY = "drying_index_category"
-ATTR_DRYING_INDEX_TEXT = "drying_index_text"
 
 # 晾晒指数类型ID
 DRYING_INDEX_TYPE = "13"
 
 # 传感器名称
 BINARY_SENSOR_NAME = "洗衣建议"
-DRYING_TIME_SENSOR_NAME = "预计晾干时间"
+DRYING_TIME_SENSOR_NAME = "Estimated Drying Time"
