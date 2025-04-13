@@ -1,0 +1,62 @@
+[project]
+name = "laundry_checker"
+version = "0.1.0"
+description = "Home Assistant custom component to check if it's suitable for laundry based on weather forecast."
+authors = [
+    {name = "renhai-lab", email = "your.email@example.com"},
+]
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "requests",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-homeassistant-custom-component>=0.13",
+    "homeassistant>=2023.1.0",
+    "black>=22.0.0",
+    "isort>=5.10.0",
+    "mypy>=0.900",
+    "ruff>=0.0.60",
+]
+
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.mypy]
+python_version = "3.9"
+check_untyped_defs = true
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_decorators = false
+no_implicit_optional = true
+strict_optional = true
+warn_redundant_casts = true
+warn_return_any = false
+warn_unused_ignores = true
+disallow_any_generics = false
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = ["tests"]
+python_files = "test_*.py"
+
+# Removed [project.scripts] section 

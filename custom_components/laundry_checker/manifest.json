@@ -1,0 +1,12 @@
+{
+  "domain": "laundry_checker",
+  "name": "Laundry Checker",
+  "documentation": "https://github.com/renhai-lab/laundry_checker",
+  "issue_tracker": "https://github.com/renhai-lab/laundry_checker/issues",
+  "dependencies": ["http"],
+  "codeowners": ["@renhai-lab"],
+  "requirements": ["requests", "loguru"],
+  "version": "0.1.0",
+  "iot_class": "cloud_polling",
+  "config_flow": true
+} 

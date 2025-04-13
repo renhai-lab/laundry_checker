@@ -1,0 +1,39 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Laundry Checker Configuration",
+                "description": "Please configure the parameters for Laundry Checker",
+                "data": {
+                    "qweather_key": "QWeather API Key",
+                    "location": "Location (longitude,latitude)",
+                    "max_suitable_humidity": "Maximum Suitable Humidity",
+                    "min_suitable_hours": "Minimum Required Suitable Hours",
+                    "max_pop": "Maximum Acceptable Precipitation Probability",
+                    "start_hour": "Start Hour",
+                    "end_hour": "End Hour",
+                    "preferred_end_hour": "Preferred Collection Hour"
+                }
+            }
+        },
+        "error": {
+            "unknown": "Unknown error",
+            "invalid_api_key": "Invalid API key",
+            "invalid_location": "Invalid location coordinates"
+        },
+        "abort": {
+            "already_configured": "Device is already configured"
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Laundry Checker Options",
+                "description": "Configure update interval",
+                "data": {
+                    "scan_interval": "Update Interval (hours)"
+                }
+            }
+        }
+    }
+} 
