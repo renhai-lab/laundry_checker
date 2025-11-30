@@ -10,6 +10,7 @@
                     "max_suitable_humidity": "最大晾晒湿度 (%)",
                     "min_suitable_hours": "最少连续晾晒小时数",
                     "max_pop": "最大可接受降水概率 (%)",
+                    "max_aqi": "最大可接受空气质量指数 (AQI)",
                     "start_hour": "允许的最早晾晒时间 (小时)",
                     "end_hour": "允许的最晚晾晒时间 (小时)",
                     "preferred_end_hour": "期望的最晚收衣时间 (小时)",
@@ -50,6 +51,7 @@
                     "max_suitable_humidity": "最大适宜湿度",
                     "min_suitable_hours": "最少适宜小时数",
                     "max_pop": "最大可接受降水概率",
+                    "max_aqi": "最大可接受空气质量指数 (AQI > 100为轻度污染)",
                     "start_hour": "开始晾晒时间（几点）",
                     "end_hour": "结束晾晒时间（几点）",
                     "preferred_end_hour": "理想收衣时间（几点）"
@@ -79,6 +81,7 @@
                         "max_suitable_humidity": "最大晾晒湿度 (%)",
                         "min_suitable_hours": "最少连续晾晒小时数",
                         "max_pop": "最大可接受降水概率 (%)",
+                        "max_aqi": "最大可接受空气质量指数 (AQI)",
                         "start_hour": "允许的最早晾晒时间 (小时)",
                         "end_hour": "允许的最晚晾晒时间 (小时)",
                         "preferred_end_hour": "期望的最晚收衣时间 (小时)",

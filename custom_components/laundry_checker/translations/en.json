@@ -10,6 +10,20 @@
                     "max_suitable_humidity": "Maximum Suitable Humidity",
                     "min_suitable_hours": "Minimum Required Suitable Hours",
                     "max_pop": "Maximum Acceptable Precipitation Probability",
+                    "max_aqi": "Maximum Acceptable Air Quality Index (AQI)",
+                    "start_hour": "Start Hour",
+                    "end_hour": "End Hour",
+                    "preferred_end_hour": "Preferred Collection Hour"
+                }
+            },
+            "parameters": {
+                "title": "Configure Parameters",
+                "description": "Please configure the parameters for laundry suitability detection",
+                "data": {
+                    "max_suitable_humidity": "Maximum Suitable Humidity",
+                    "min_suitable_hours": "Minimum Required Suitable Hours",
+                    "max_pop": "Maximum Acceptable Precipitation Probability",
+                    "max_aqi": "Maximum Acceptable AQI (>100 is light pollution)",
                     "start_hour": "Start Hour",
                     "end_hour": "End Hour",
                     "preferred_end_hour": "Preferred Collection Hour"

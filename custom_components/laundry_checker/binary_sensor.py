@@ -25,6 +25,9 @@ from .const import (
     ATTR_DETAILED_MESSAGE,
     ATTR_TOMORROW_DETAIL,
     ATTR_UV_INDEX,
+    ATTR_AQI,
+    ATTR_AQI_LEVEL,
+    ATTR_PRIMARY_POLLUTANT,
 )
 from .coordinator import LaundryCheckerDataUpdateCoordinator
 
@@ -85,6 +88,11 @@ class LaundryCheckerBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
         if "uv_index" in stats:
             attributes[ATTR_UV_INDEX] = stats["uv_index"]
+
+        if "aqi" in stats:
+            attributes[ATTR_AQI] = stats["aqi"]
+            attributes[ATTR_AQI_LEVEL] = stats.get("aqi_level", "")
+            attributes[ATTR_PRIMARY_POLLUTANT] = stats.get("primary_pollutant", "")
 
         if "wind_conditions" in stats:
             attributes[ATTR_WIND_CONDITIONS] = ", ".join(stats["wind_conditions"])
@@ -150,6 +158,11 @@ class TomorrowLaundryCheckerBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
         if "uv_index" in stats:
             attributes[ATTR_UV_INDEX] = stats["uv_index"]
+
+        if "aqi" in stats:
+            attributes[ATTR_AQI] = stats["aqi"]
+            attributes[ATTR_AQI_LEVEL] = stats.get("aqi_level", "")
+            attributes[ATTR_PRIMARY_POLLUTANT] = stats.get("primary_pollutant", "")
 
         if "wind_conditions" in stats:
             attributes[ATTR_WIND_CONDITIONS] = ", ".join(stats["wind_conditions"])

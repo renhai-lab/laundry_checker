@@ -15,6 +15,7 @@ CONF_QWEATHER_KEY = "qweather_key"
 CONF_UNSUITABLE_WEATHER_TYPES = "unsuitable_weather_types"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_USE_HA_LOCATION = "use_ha_location"
+CONF_MAX_AQI = "max_aqi"
 
 # 默认值
 DEFAULT_LOCATION = "112.15,20.28"  # 默认经纬度坐标
@@ -25,6 +26,7 @@ DEFAULT_START_HOUR = 6
 DEFAULT_END_HOUR = 22
 DEFAULT_PREFERRED_END_HOUR = 18
 DEFAULT_SCAN_INTERVAL = 6  # 小时
+DEFAULT_MAX_AQI = 100  # 最大可接受的空气质量指数（AQI > 100为轻度污染）
 DEFAULT_UNSUITABLE_WEATHER_TYPES = [
     "雨",
     "阵雨",
@@ -49,6 +51,16 @@ DEFAULT_UNSUITABLE_WEATHER_TYPES = [
     "严重霾",
 ]
 
+# 空气质量等级描述
+AQI_LEVELS = {
+    (0, 50): "优",
+    (51, 100): "良",
+    (101, 150): "轻度污染",
+    (151, 200): "中度污染",
+    (201, 300): "重度污染",
+    (301, 500): "严重污染",
+}
+
 # 传感器
 ATTR_SUITABLE_HOURS = "suitable_hours"
 ATTR_AVERAGE_HUMIDITY = "average_humidity"
@@ -63,6 +75,9 @@ ATTR_MULTI_DAY_FORECAST = "multi_day_forecast"
 ATTR_TOMORROW_DETAIL = "tomorrow_detail"
 ATTR_FUTURE_DAYS = "future_days"
 ATTR_UV_INDEX = "uv_index"
+ATTR_AQI = "aqi"
+ATTR_AQI_LEVEL = "aqi_level"
+ATTR_PRIMARY_POLLUTANT = "primary_pollutant"
 
 # 晾晒指数类型ID
 DRYING_INDEX_TYPE = "13"

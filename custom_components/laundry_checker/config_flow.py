@@ -23,6 +23,7 @@ from .const import (
     CONF_PREFERRED_END_HOUR,
     CONF_QWEATHER_KEY,
     CONF_SCAN_INTERVAL,
+    CONF_MAX_AQI,
     DEFAULT_LOCATION,
     DEFAULT_MAX_SUITABLE_HUMIDITY,
     DEFAULT_MIN_SUITABLE_HOURS,
@@ -31,6 +32,7 @@ from .const import (
     DEFAULT_END_HOUR,
     DEFAULT_PREFERRED_END_HOUR,
     DEFAULT_SCAN_INTERVAL,
+    DEFAULT_MAX_AQI,
     CONF_USE_HA_LOCATION,
 )
 
@@ -259,6 +261,9 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_MIN_SUITABLE_HOURS, default=DEFAULT_MIN_SUITABLE_HOURS
                 ): vol.Coerce(int),
                 vol.Required(CONF_MAX_POP, default=DEFAULT_MAX_POP): vol.Coerce(int),
+                vol.Required(CONF_MAX_AQI, default=DEFAULT_MAX_AQI): vol.All(
+                    vol.Coerce(int), vol.Range(min=0, max=500)
+                ),
                 vol.Required(CONF_START_HOUR, default=DEFAULT_START_HOUR): vol.All(
                     vol.Coerce(int), vol.Range(min=0, max=23)
                 ),

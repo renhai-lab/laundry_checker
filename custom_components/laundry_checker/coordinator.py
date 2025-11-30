@@ -13,6 +13,8 @@ from .const import (
     DOMAIN,
     DEFAULT_SCAN_INTERVAL,
     DRYING_INDEX_TYPE,
+    AQI_LEVELS,
+    DEFAULT_MAX_AQI,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -33,6 +35,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         end_hour: int = 22,
         preferred_end_hour: int = 18,
         unsuitable_weather_types: Optional[list] = None,
+        max_aqi: int = DEFAULT_MAX_AQI,
     ) -> None:
         """Initialize."""
         super().__init__(
@@ -50,6 +53,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         self.end_hour = end_hour
         self.preferred_end_hour = preferred_end_hour
         self.unsuitable_weather_types = unsuitable_weather_types or []
+        self.max_aqi = max_aqi
 
     @property
     def location(self) -> str:
@@ -74,6 +78,11 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("无法获取天气数据")
                 raise ConfigEntryAuthFailed("获取天气数据失败")
 
+            # 获取空气质量数据
+            air_quality_data = await self.hass.async_add_executor_job(
+                self.get_air_quality_data
+            )
+
             today = datetime.now().date()
             tomorrow = today + timedelta(days=1)
             
@@ -83,6 +92,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
 
             today_data = []
             today_daily_data = {}
+            today_air_quality = air_quality_data.get(today, {}) if air_quality_data else {}
             if today_info and today_info.get("hourly"):
                 today_data = today_info.get("hourly", [])
                 today_daily_data = today_info.get("daily", {})
@@ -97,6 +107,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
 
             tomorrow_data = []
             tomorrow_daily_data = {}
+            tomorrow_air_quality = air_quality_data.get(tomorrow, {}) if air_quality_data else {}
             if tomorrow_info and tomorrow_info.get("hourly"):
                 tomorrow_data = tomorrow_info.get("hourly", [])
                 tomorrow_daily_data = tomorrow_info.get("daily", {})
@@ -108,12 +119,12 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
 
             # 处理今天的天气适宜性
             is_suitable, message, stats = await self.hass.async_add_executor_job(
-                self.check_weather_suitable, today_data, today_daily_data
+                self.check_weather_suitable, today_data, today_daily_data, today_air_quality
             )
 
             # 处理明天的天气适宜性
             tomorrow_suitable, tomorrow_message, tomorrow_stats = await self.hass.async_add_executor_job(
-                self.check_weather_suitable, tomorrow_data, tomorrow_daily_data
+                self.check_weather_suitable, tomorrow_data, tomorrow_daily_data, tomorrow_air_quality
             )
 
             # 添加风力信息
@@ -133,10 +144,11 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 if date > tomorrow:
                     hourly_info = data.get("hourly", [])
                     daily_info = data.get("daily", {})
+                    future_air_quality = air_quality_data.get(date, {}) if air_quality_data else {}
                     # Ensure both hourly and daily data are passed to check_weather_suitable
                     future_day_suitable, future_day_message, future_day_stats = (
                         await self.hass.async_add_executor_job(
-                            self.check_weather_suitable, hourly_info, daily_info
+                            self.check_weather_suitable, hourly_info, daily_info, future_air_quality
                         )
                     )
                     future_days.append(
@@ -160,6 +172,11 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 f"🌤️ 天气状况: {', '.join(tomorrow_stats['weather_conditions'])}\n"
                 f"💧 平均湿度: {tomorrow_stats['avg_humidity']:.1f}%\n"
             )
+
+            # 添加空气质量信息（如果有）
+            if "aqi" in tomorrow_stats and tomorrow_stats["aqi"] > 0:
+                aqi_emoji = "🟢" if tomorrow_stats["aqi"] <= 50 else ("🟡" if tomorrow_stats["aqi"] <= 100 else "🔴")
+                tomorrow_detail += f"{aqi_emoji} 空气质量: AQI {tomorrow_stats['aqi']} ({tomorrow_stats.get('aqi_level', '')})\n"
 
             # 添加晾晒指数信息（如果有）
             if "drying_index_text" in tomorrow_stats:
@@ -315,7 +332,62 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.error("处理天气数据时发生意外错误: %s", e, exc_info=True)
             return None
 
-    def check_weather_suitable(self, hourly_data: list, daily_data: dict) -> tuple:
+    def get_air_quality_data(self) -> Optional[Dict]:
+        """Get air quality data from QWeather API."""
+        air_quality_url = "https://devapi.qweather.com/v7/air/5d"
+        params = {
+            "location": self._location,
+            "key": self.qweather_key,
+        }
+        air_quality_data = {}
+
+        try:
+            _LOGGER.debug("正在请求和风天气空气质量API: %s, 参数: %s", air_quality_url, params)
+            response = requests.get(air_quality_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+
+            if data.get("code") == "200":
+                for day_data in data.get("daily", []):
+                    try:
+                        date = datetime.strptime(day_data["fxDate"], "%Y-%m-%d").date()
+                        aqi = int(day_data.get("aqi", 0))
+                        
+                        # 获取空气质量等级描述
+                        aqi_level = ""
+                        for (low, high), level in AQI_LEVELS.items():
+                            if low <= aqi <= high:
+                                aqi_level = level
+                                break
+                        
+                        air_quality_data[date] = {
+                            "aqi": aqi,
+                            "aqi_level": aqi_level,
+                            "primary_pollutant": day_data.get("primary", ""),
+                            "pm2p5": int(day_data.get("pm2p5", 0)),
+                            "pm10": int(day_data.get("pm10", 0)),
+                        }
+                        _LOGGER.debug(f"日期 {date} 空气质量数据: AQI={aqi}, 等级={aqi_level}")
+                    except (ValueError, KeyError) as e:
+                        _LOGGER.warning(f"解析空气质量数据时出错: {day_data}, 错误: {e}")
+            else:
+                _LOGGER.warning(
+                    "和风天气空气质量API返回非200状态: Code %s, 消息: %s",
+                    data.get("code"),
+                    data.get("message", "N/A"),
+                )
+                return {}
+
+            return air_quality_data
+
+        except requests.exceptions.RequestException as req_err:
+            _LOGGER.warning("请求和风天气空气质量API时网络错误: %s", req_err)
+            return {}
+        except Exception as e:
+            _LOGGER.warning("处理空气质量数据时发生错误: %s", e)
+            return {}
+
+    def check_weather_suitable(self, hourly_data: list, daily_data: dict, air_quality_data: Optional[dict] = None) -> tuple:
         """Check if weather is suitable for laundry."""
         if not hourly_data:
             return False, "无法获取天气数据", {}
@@ -330,7 +402,16 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             "estimated_drying_time": 0,
             "best_drying_period": "",
             "uv_index": 0,
+            "aqi": 0,
+            "aqi_level": "",
+            "primary_pollutant": "",
         }
+
+        # 添加空气质量数据到stats
+        if air_quality_data:
+            stats["aqi"] = air_quality_data.get("aqi", 0)
+            stats["aqi_level"] = air_quality_data.get("aqi_level", "")
+            stats["primary_pollutant"] = air_quality_data.get("primary_pollutant", "")
 
         total_humidity = 0
         valid_hours = 0
@@ -392,6 +473,11 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             is_suitable = False
             reasons.append(f"降水概率较高 ({stats['max_pop']}%)")
 
+        # 检查空气质量
+        if stats["aqi"] > self.max_aqi:
+            is_suitable = False
+            reasons.append(f"空气质量较差 (AQI: {stats['aqi']}，{stats['aqi_level']})")
+
         for weather in stats["weather_conditions"]:
             if weather in self.unsuitable_weather_types:
                 is_suitable = False
@@ -430,6 +516,11 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 f"{wind_emoji} 风力情况：" + "，".join(stats["wind_conditions"]),
             ]
 
+            # 添加空气质量信息
+            if stats["aqi"] > 0:
+                aqi_emoji = "🟢" if stats["aqi"] <= 50 else ("🟡" if stats["aqi"] <= 100 else "🔴")
+                message.append(f"{aqi_emoji} 空气质量: AQI {stats['aqi']} ({stats['aqi_level']})")
+
             # 添加紫外线提醒
             if stats["uv_index"] > 7:
                 message.append("☀️ 紫外线较强，注意防晒哦~")
@@ -441,7 +532,8 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 "降水": "🌧️",
                 "湿度": "💧",
                 "时间": "⏰",
-                "概率": "📊"
+                "概率": "📊",
+                "空气质量": "😷",
             }
             
             formatted_reasons = []
@@ -456,6 +548,8 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 message += "\n💡 建议使用室内晾衣架或烘干机"
             elif "湿度" in "".join(reasons):
                 message += "\n💡 可以开除湿机辅助晾干哦"
+            elif "空气质量" in "".join(reasons):
+                message += "\n💡 空气污染较重，建议室内晾晒以避免衣物沾染灰尘"
 
         return is_suitable, message, stats
 

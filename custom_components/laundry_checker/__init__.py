@@ -26,6 +26,8 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     CONF_SCAN_INTERVAL,
     CONF_USE_HA_LOCATION,
+    CONF_MAX_AQI,
+    DEFAULT_MAX_AQI,
 )
 from .coordinator import LaundryCheckerDataUpdateCoordinator
 
@@ -60,6 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         end_hour=entry.data[CONF_END_HOUR],
         preferred_end_hour=entry.data[CONF_PREFERRED_END_HOUR],
         unsuitable_weather_types=DEFAULT_UNSUITABLE_WEATHER_TYPES,
+        max_aqi=entry.data.get(CONF_MAX_AQI, DEFAULT_MAX_AQI),
     )
 
     try:
