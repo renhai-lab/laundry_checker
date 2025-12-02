@@ -14,6 +14,7 @@
                     "start_hour": "允许的最早晾晒时间 (小时)",
                     "end_hour": "允许的最晚晾晒时间 (小时)",
                     "preferred_end_hour": "期望的最晚收衣时间 (小时)",
+                    "qweather_api_host": "和风天气 API Host (控制台设置)",
                     "qweather_key": "和风天气API密钥",
                     "unsuitable_weather_types": "避免晾晒的天气类型",
                     "scan_interval": "天气检查间隔 (小时)"

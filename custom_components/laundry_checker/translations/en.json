@@ -13,7 +13,8 @@
                     "max_aqi": "Maximum Acceptable Air Quality Index (AQI)",
                     "start_hour": "Start Hour",
                     "end_hour": "End Hour",
-                    "preferred_end_hour": "Preferred Collection Hour"
+                    "preferred_end_hour": "Preferred Collection Hour",
+                    "qweather_api_host": "QWeather API Host (from console)"
                 }
             },
             "parameters": {

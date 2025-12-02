@@ -8,7 +8,9 @@ import requests
 from .const import (
     CONF_QWEATHER_KEY,
     DEFAULT_UNSUITABLE_WEATHER_TYPES,
+    DEFAULT_QWEATHER_API_HOST,
 )
+from .helpers import normalize_api_host
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -29,6 +31,7 @@ class LaundryChecker:
         ha_url: Optional[str] = None,
         ha_token: Optional[str] = None,
         notify_services: Optional[List[str]] = None,
+        api_host: Optional[str] = None,
     ):
         """Initialize the checker."""
         # 配置参数
@@ -44,6 +47,7 @@ class LaundryChecker:
         self.ha_url = ha_url
         self.ha_token = ha_token
         self.notify_services = notify_services or ["notify"]
+        self.api_host = normalize_api_host(api_host or DEFAULT_QWEATHER_API_HOST)
 
     def get_weather_data(self, days: int = 3) -> Dict:
         """获取未来几天的天气数据
@@ -56,7 +60,7 @@ class LaundryChecker:
         """
         try:
             # 使用和风天气的72小时预报API
-            url = "https://devapi.qweather.com/v7/weather/72h"
+            url = self._build_api_url("/v7/weather/72h")
             params = {
                 "location": self.location,
                 "key": self.qweather_key,
@@ -260,4 +264,8 @@ class LaundryChecker:
             is_suitable, message, stats = self.check_weather_suitable(hourly_data)
             return is_suitable, message, stats
 
-        return False, "无法获取未来天气数据", {} 
+        return False, "无法获取未来天气数据", {}
+
+    def _build_api_url(self, path: str) -> str:
+        """Build an absolute QWeather API URL."""
+        return f"{self.api_host}/{path.lstrip('/')}"

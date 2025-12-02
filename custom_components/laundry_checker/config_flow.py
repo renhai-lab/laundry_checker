@@ -22,6 +22,7 @@ from .const import (
     CONF_END_HOUR,
     CONF_PREFERRED_END_HOUR,
     CONF_QWEATHER_KEY,
+    CONF_QWEATHER_API_HOST,
     CONF_SCAN_INTERVAL,
     CONF_MAX_AQI,
     DEFAULT_LOCATION,
@@ -34,16 +35,21 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_MAX_AQI,
     CONF_USE_HA_LOCATION,
+    DEFAULT_QWEATHER_API_HOST,
 )
+from .helpers import normalize_api_host
 
 CONF_CITY = "city"
 CONF_MANUAL_LOCATION = "manual_location"
 LOCATION_TYPE = "location_type"
 
 
-async def validate_api_key(hass: HomeAssistant, api_key: str) -> bool:
+async def validate_api_key(
+    hass: HomeAssistant, api_key: str, api_host: str
+) -> bool:
     """验证和风天气API密钥是否有效。"""
-    url = "https://devapi.qweather.com/v7/weather/now"
+    base_url = normalize_api_host(api_host)
+    url = f"{base_url}/v7/weather/now"
     params = {
         "location": "101010100",  # 使用北京作为测试位置
         "key": api_key,
@@ -59,9 +65,12 @@ async def validate_api_key(hass: HomeAssistant, api_key: str) -> bool:
         return False
 
 
-async def search_city(hass: HomeAssistant, api_key: str, city: str) -> list[dict]:
+async def search_city(
+    hass: HomeAssistant, api_key: str, api_host: str, city: str
+) -> list[dict]:
     """搜索城市信息。"""
-    url = "https://geoapi.qweather.com/v2/city/lookup"
+    base_url = normalize_api_host(api_host)
+    url = f"{base_url}/v2/city/lookup"
     params = {
         "location": city,
         "key": api_key,
@@ -85,7 +94,8 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     # 验证API密钥
     api_key = data[CONF_QWEATHER_KEY]
-    if not await validate_api_key(hass, api_key):
+    api_host = data.get(CONF_QWEATHER_API_HOST, DEFAULT_QWEATHER_API_HOST)
+    if not await validate_api_key(hass, api_key, api_host):
         errors["base"] = "invalid_api_key"
         return {"errors": errors}
 
@@ -95,7 +105,7 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Laundry Checker."""
 
-    VERSION = 1
+    VERSION = 2
     CONNECTION_CLASS = config_entries.CONN_CLASS_CLOUD_POLL
 
     def __init__(self):
@@ -105,6 +115,7 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._reauth_entry = None
         self._cities = []
         self._use_ha_location = False
+        self._api_host = DEFAULT_QWEATHER_API_HOST
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -114,7 +125,8 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             self._api_key = user_input[CONF_QWEATHER_KEY]
-            valid = await validate_api_key(self.hass, self._api_key)
+            self._api_host = normalize_api_host(user_input[CONF_QWEATHER_API_HOST])
+            valid = await validate_api_key(self.hass, self._api_key, self._api_host)
 
             if not valid:
                 errors["base"] = "invalid_api_key"
@@ -126,6 +138,7 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         data={
                             **self._reauth_entry.data,
                             CONF_QWEATHER_KEY: self._api_key,
+                            CONF_QWEATHER_API_HOST: self._api_host,
                         },
                     )
                     return self.async_abort(reason="reauth_successful")
@@ -133,7 +146,18 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 # 进入位置选择步骤
                 return await self.async_step_location_type()
 
-        schema = vol.Schema({vol.Required(CONF_QWEATHER_KEY): str})
+        default_host = (
+            self._entry_data.get(CONF_QWEATHER_API_HOST)
+            or DEFAULT_QWEATHER_API_HOST
+        )
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_QWEATHER_KEY): str,
+                vol.Required(
+                    CONF_QWEATHER_API_HOST, default=default_host
+                ): cv.url,
+            }
+        )
 
         return self.async_show_form(
             step_id="user",
@@ -175,7 +199,9 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             city = user_input[CONF_CITY]
-            cities = await search_city(self.hass, self._api_key, city)
+            cities = await search_city(
+                self.hass, self._api_key, self._api_host, city
+            )
 
             if not cities:
                 errors["base"] = "city_not_found"
@@ -234,6 +260,7 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # 合并所有配置
             data = {
                 CONF_QWEATHER_KEY: self._api_key,
+                CONF_QWEATHER_API_HOST: self._api_host,
                 **user_input,
             }
 
@@ -288,6 +315,9 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             self.context["entry_id"]
         )
         self._entry_data = dict(self._reauth_entry.data)
+        self._api_host = self._entry_data.get(
+            CONF_QWEATHER_API_HOST, DEFAULT_QWEATHER_API_HOST
+        )
 
         return await self.async_step_user()
 

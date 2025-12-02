@@ -15,7 +15,10 @@ from .const import (
     DRYING_INDEX_TYPE,
     AQI_LEVELS,
     DEFAULT_MAX_AQI,
+    DEFAULT_QWEATHER_API_HOST,
+    DEPRECATED_QWEATHER_DOMAINS,
 )
+from .helpers import normalize_api_host
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -28,6 +31,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         hass: HomeAssistant,
         location: str,
         qweather_key: str,
+        api_host: str = DEFAULT_QWEATHER_API_HOST,
         max_suitable_humidity: float = 85.0,
         min_suitable_hours: int = 6,
         max_pop: int = 0,
@@ -46,6 +50,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         )
         self._location = location
         self.qweather_key = qweather_key
+        self.api_host = normalize_api_host(api_host)
         self.max_suitable_humidity = max_suitable_humidity
         self.min_suitable_hours = min_suitable_hours
         self.max_pop = max_pop
@@ -54,6 +59,13 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         self.preferred_end_hour = preferred_end_hour
         self.unsuitable_weather_types = unsuitable_weather_types or []
         self.max_aqi = max_aqi
+
+        if any(domain in self.api_host for domain in DEPRECATED_QWEATHER_DOMAINS):
+            _LOGGER.warning(
+                "QWeather host %s is scheduled for retirement by 2026. "
+                "Please switch to the dedicated API Host listed in your QWeather console.",
+                self.api_host,
+            )
 
     @property
     def location(self) -> str:
@@ -256,8 +268,8 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
 
     def get_weather_data(self) -> Dict:
         """Get weather data from QWeather API."""
-        hourly_data_url = "https://devapi.qweather.com/v7/weather/72h"
-        daily_data_url = "https://devapi.qweather.com/v7/weather/3d"
+        hourly_data_url = self._build_api_url("/v7/weather/72h")
+        daily_data_url = self._build_api_url("/v7/weather/3d")
         params = {
             "location": self._location,
             "key": self.qweather_key,
@@ -334,7 +346,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
 
     def get_air_quality_data(self) -> Optional[Dict]:
         """Get air quality data from QWeather API."""
-        air_quality_url = "https://devapi.qweather.com/v7/air/5d"
+        air_quality_url = self._build_api_url("/v7/air/5d")
         params = {
             "location": self._location,
             "key": self.qweather_key,
@@ -591,3 +603,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             * uv_factor
         )
         return round(total_time, 1)
+
+    def _build_api_url(self, path: str) -> str:
+        """Build an absolute QWeather API URL based on the configured host."""
+        return f"{self.api_host}/{path.lstrip('/')}"

@@ -12,6 +12,7 @@ CONF_START_HOUR = "start_hour"
 CONF_END_HOUR = "end_hour"
 CONF_PREFERRED_END_HOUR = "preferred_end_hour"
 CONF_QWEATHER_KEY = "qweather_key"
+CONF_QWEATHER_API_HOST = "qweather_api_host"
 CONF_UNSUITABLE_WEATHER_TYPES = "unsuitable_weather_types"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_USE_HA_LOCATION = "use_ha_location"
@@ -27,6 +28,7 @@ DEFAULT_END_HOUR = 22
 DEFAULT_PREFERRED_END_HOUR = 18
 DEFAULT_SCAN_INTERVAL = 6  # 小时
 DEFAULT_MAX_AQI = 100  # 最大可接受的空气质量指数（AQI > 100为轻度污染）
+DEFAULT_QWEATHER_API_HOST = "https://api.qweather.com"
 DEFAULT_UNSUITABLE_WEATHER_TYPES = [
     "雨",
     "阵雨",
@@ -85,3 +87,10 @@ DRYING_INDEX_TYPE = "13"
 # 传感器名称
 BINARY_SENSOR_NAME = "洗衣建议"
 DRYING_TIME_SENSOR_NAME = "Estimated Drying Time"
+
+# 即将弃用的和风天气域名（用于日志警告）
+DEPRECATED_QWEATHER_DOMAINS = (
+    "devapi.qweather.com",
+    "api.qweather.com",
+    "geoapi.qweather.com",
+)

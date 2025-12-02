@@ -22,12 +22,14 @@ from .const import (
     CONF_END_HOUR,
     CONF_PREFERRED_END_HOUR,
     CONF_QWEATHER_KEY,
+    CONF_QWEATHER_API_HOST,
     DEFAULT_UNSUITABLE_WEATHER_TYPES,
     DEFAULT_SCAN_INTERVAL,
     CONF_SCAN_INTERVAL,
     CONF_USE_HA_LOCATION,
     CONF_MAX_AQI,
     DEFAULT_MAX_AQI,
+    DEFAULT_QWEATHER_API_HOST,
 )
 from .coordinator import LaundryCheckerDataUpdateCoordinator
 
@@ -55,6 +57,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass=hass,
         location=location,
         qweather_key=entry.data[CONF_QWEATHER_KEY],
+        api_host=entry.data.get(
+            CONF_QWEATHER_API_HOST, DEFAULT_QWEATHER_API_HOST
+        ),
         max_suitable_humidity=entry.data[CONF_MAX_SUITABLE_HUMIDITY],
         min_suitable_hours=entry.data[CONF_MIN_SUITABLE_HOURS],
         max_pop=entry.data[CONF_MAX_POP],
@@ -145,3 +150,22 @@ async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry):
     """Reload config entry."""
     await async_unload_entry(hass, entry)
     await async_setup_entry(hass, entry)
+
+
+async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) -> bool:
+    """Migrate old config entries to include the API host field."""
+    version = config_entry.version or 1
+
+    if version == 1:
+        new_data = {**config_entry.data}
+        new_data.setdefault(CONF_QWEATHER_API_HOST, DEFAULT_QWEATHER_API_HOST)
+
+        hass.config_entries.async_update_entry(
+            config_entry, data=new_data, version=2
+        )
+        _LOGGER.info(
+            "Migrated Laundry Checker config entry %s to version 2 to store the QWeather API host.",
+            config_entry.entry_id,
+        )
+
+    return True
