@@ -18,6 +18,7 @@ from custom_components.laundry_checker.const import (
     CONF_END_HOUR,
     CONF_PREFERRED_END_HOUR,
     CONF_QWEATHER_KEY,
+    CONF_QWEATHER_API_HOST,
     DEFAULT_LOCATION,
     DEFAULT_MAX_SUITABLE_HUMIDITY,
     DEFAULT_MIN_SUITABLE_HOURS,
@@ -25,6 +26,7 @@ from custom_components.laundry_checker.const import (
     DEFAULT_START_HOUR,
     DEFAULT_END_HOUR,
     DEFAULT_PREFERRED_END_HOUR,
+    DEFAULT_QWEATHER_API_HOST,
 )
 
 
@@ -44,6 +46,7 @@ async def test_form(hass: HomeAssistant) -> None:
             result["flow_id"],
             {
                 CONF_QWEATHER_KEY: "test_api_key",
+                CONF_QWEATHER_API_HOST: DEFAULT_QWEATHER_API_HOST,
                 CONF_LOCATION: DEFAULT_LOCATION,
                 CONF_MAX_SUITABLE_HUMIDITY: DEFAULT_MAX_SUITABLE_HUMIDITY,
                 CONF_MIN_SUITABLE_HOURS: DEFAULT_MIN_SUITABLE_HOURS,
@@ -58,6 +61,7 @@ async def test_form(hass: HomeAssistant) -> None:
     assert result2["title"] == "洗衣检查器"
     assert result2["data"] == {
         CONF_QWEATHER_KEY: "test_api_key",
+        CONF_QWEATHER_API_HOST: DEFAULT_QWEATHER_API_HOST,
         CONF_LOCATION: DEFAULT_LOCATION,
         CONF_MAX_SUITABLE_HUMIDITY: DEFAULT_MAX_SUITABLE_HUMIDITY,
         CONF_MIN_SUITABLE_HOURS: DEFAULT_MIN_SUITABLE_HOURS,
@@ -82,6 +86,7 @@ async def test_form_invalid_auth(hass: HomeAssistant) -> None:
             result["flow_id"],
             {
                 CONF_QWEATHER_KEY: "invalid_api_key",
+                CONF_QWEATHER_API_HOST: DEFAULT_QWEATHER_API_HOST,
                 CONF_LOCATION: DEFAULT_LOCATION,
             },
         )

@@ -122,10 +122,28 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """处理初始步骤，输入API密钥。"""
         errors = {}
+        default_host = (
+            self._entry_data.get(CONF_QWEATHER_API_HOST)
+            or DEFAULT_QWEATHER_API_HOST
+        )
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_QWEATHER_KEY): str,
+                vol.Required(CONF_QWEATHER_API_HOST, default=default_host): str,
+            }
+        )
 
         if user_input is not None:
             self._api_key = user_input[CONF_QWEATHER_KEY]
-            self._api_host = normalize_api_host(user_input[CONF_QWEATHER_API_HOST])
+            try:
+                self._api_host = normalize_api_host(
+                    user_input[CONF_QWEATHER_API_HOST]
+                )
+            except ValueError:
+                errors["base"] = "invalid_api_host"
+                return self.async_show_form(
+                    step_id="user", data_schema=schema, errors=errors
+                )
             valid = await validate_api_key(self.hass, self._api_key, self._api_host)
 
             if not valid:
@@ -145,19 +163,6 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
                 # 进入位置选择步骤
                 return await self.async_step_location_type()
-
-        default_host = (
-            self._entry_data.get(CONF_QWEATHER_API_HOST)
-            or DEFAULT_QWEATHER_API_HOST
-        )
-        schema = vol.Schema(
-            {
-                vol.Required(CONF_QWEATHER_KEY): str,
-                vol.Required(
-                    CONF_QWEATHER_API_HOST, default=default_host
-                ): cv.url,
-            }
-        )
 
         return self.async_show_form(
             step_id="user",

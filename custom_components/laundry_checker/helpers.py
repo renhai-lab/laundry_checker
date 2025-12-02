@@ -13,4 +13,3 @@ def normalize_api_host(api_host: str) -> str:
         host = f"https://{host}"
 
     return host.rstrip("/")
-*** End File

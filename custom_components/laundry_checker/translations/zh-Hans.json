@@ -66,7 +66,8 @@
             "invalid_location_format": "位置格式无效。请输入有效的经纬度坐标，例如 '120.15,30.28'。",
             "invalid_hours_format": "小时格式无效。请输入 0 到 23 之间的整数。",
             "invalid_percentage_format": "百分比格式无效。请输入 0 到 100 之间的数字。",
-            "invalid_interval_format": "间隔格式无效。请输入正数。"
+            "invalid_interval_format": "间隔格式无效。请输入正数。",
+            "invalid_api_host": "API Host 无效，请输入完整的 URL"
         },
         "abort": {
             "already_configured": "设备已配置",
