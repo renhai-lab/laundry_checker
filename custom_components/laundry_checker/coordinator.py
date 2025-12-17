@@ -5,7 +5,7 @@ import logging
 from typing import Any, Dict, Optional
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.exceptions import ConfigEntryAuthFailed
 import requests
 
@@ -21,6 +21,13 @@ from .const import (
 from .helpers import normalize_api_host
 
 _LOGGER = logging.getLogger(__name__)
+
+# QWeather v1 error code mapping
+AUTH_ERROR_CODES = {"401"}
+QUOTA_ERROR_CODES = {"402"}
+FORBIDDEN_ERROR_CODES = {"403"}
+RATE_LIMIT_ERROR_CODES = {"429"}
+SERVER_ERROR_CODES = {"500"}
 
 
 class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
@@ -87,8 +94,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 self.get_weather_data
             )
             if not weather_data:
-                _LOGGER.error("无法获取天气数据")
-                raise ConfigEntryAuthFailed("获取天气数据失败")
+                raise UpdateFailed("未收到任何天气数据")
 
             # 获取空气质量数据
             air_quality_data = await self.hass.async_add_executor_job(
@@ -276,73 +282,88 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         }
         daily_data = {}
 
+        def _handle_qweather_response(response: requests.Response, api_name: str) -> Dict:
+            """Validate QWeather response and map errors."""
+            try:
+                response.raise_for_status()
+            except requests.exceptions.HTTPError as http_err:
+                status = http_err.response.status_code if http_err.response else None
+                if status == 401:
+                    raise ConfigEntryAuthFailed(f"{api_name} 认证失败 (HTTP 401)") from http_err
+                raise UpdateFailed(f"{api_name} HTTP {status} 错误: {http_err}") from http_err
+
+            data = response.json()
+            code = str(data.get("code")) if data.get("code") is not None else None
+            message = data.get("message", "N/A")
+
+            if code == "200":
+                return data
+            if code in AUTH_ERROR_CODES:
+                raise ConfigEntryAuthFailed(f"{api_name} 认证失败 (code {code})")
+            if code in RATE_LIMIT_ERROR_CODES:
+                raise UpdateFailed(f"{api_name} 触发限流 (code {code})，请稍后重试")
+            if code in QUOTA_ERROR_CODES:
+                raise UpdateFailed(f"{api_name} 配额不足或余额不足 (code {code})")
+            if code in FORBIDDEN_ERROR_CODES:
+                raise UpdateFailed(f"{api_name} 被拒绝访问 (code {code})，请检查主机或安全设置")
+            if code in SERVER_ERROR_CODES:
+                raise UpdateFailed(f"{api_name} 服务端错误 (code {code})")
+
+            raise UpdateFailed(f"{api_name} 返回异常状态码 {code}: {message}")
+
         try:
             # Get 72h hourly forecast
             _LOGGER.debug("正在请求和风天气72小时逐小时API: %s, 参数: %s", hourly_data_url, params)
-            response_hourly = requests.get(hourly_data_url, params=params)
-            response_hourly.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-            hourly_forecast = response_hourly.json()
+            response_hourly = requests.get(hourly_data_url, params=params, timeout=10)
+            hourly_forecast = _handle_qweather_response(response_hourly, "和风天气72小时API")
 
-            if hourly_forecast.get("code") == "200":
-                for hour in hourly_forecast.get("hourly", []):
-                    try:
-                        dt_obj = datetime.fromisoformat(hour["fxTime"])
-                        date = dt_obj.date()
-                        hour_time = dt_obj.hour
+            for hour in hourly_forecast.get("hourly", []):
+                try:
+                    dt_obj = datetime.fromisoformat(hour["fxTime"])
+                    date = dt_obj.date()
+                    hour_time = dt_obj.hour
 
-                        if date not in daily_data:
-                            daily_data[date] = {"hourly": [], "daily": {}}
+                    if date not in daily_data:
+                        daily_data[date] = {"hourly": [], "daily": {}}
 
-                        # Filter hours based on start and end times
-                        if self.start_hour <= hour_time <= self.end_hour:
-                            daily_data[date]["hourly"].append(hour)
-                    except (ValueError, KeyError) as e:
-                        _LOGGER.warning(f"解析小时数据时出错: {hour}, 错误: {e}")
-            else:
-                _LOGGER.error(
-                    "和风天气72小时API错误: Code %s, 消息: %s",
-                    hourly_forecast.get("code"),
-                    hourly_forecast.get("message", "N/A"),
-                )
+                    # Filter hours based on start and end times
+                    if self.start_hour <= hour_time <= self.end_hour:
+                        daily_data[date]["hourly"].append(hour)
+                except (ValueError, KeyError) as e:
+                    _LOGGER.warning(f"解析小时数据时出错: {hour}, 错误: {e}")
 
             # Get 3d daily forecast (for UV index etc.)
             _LOGGER.debug("正在请求和风天气3天每日API: %s, 参数: %s", daily_data_url, params)
-            response_daily = requests.get(daily_data_url, params=params)
-            response_daily.raise_for_status()
-            daily_forecast = response_daily.json()
+            response_daily = requests.get(daily_data_url, params=params, timeout=10)
+            daily_forecast = _handle_qweather_response(response_daily, "和风天气3天每日API")
 
-            if daily_forecast.get("code") == "200":
-                for day_data in daily_forecast.get("daily", []):
-                     try:
-                        date = datetime.strptime(day_data["fxDate"], "%Y-%m-%d").date()
-                        if date in daily_data:
-                             # Store the entire daily data dict for the date
-                            daily_data[date]["daily"] = day_data
-                            _LOGGER.debug(f"为日期 {date} 添加了每日数据: {day_data}")
-                        else:
-                            _LOGGER.warning(f"日期 {date} 的每日数据在小时数据中未找到，已跳过。")
-                     except (ValueError, KeyError) as e:
-                        _LOGGER.warning(f"解析每日数据时出错: {day_data}, 错误: {e}")
-
-            else:
-                _LOGGER.error(
-                    "和风天气3天每日API错误: Code %s, 消息: %s",
-                    daily_forecast.get("code"),
-                    daily_forecast.get("message", "N/A"),
-                )
+            for day_data in daily_forecast.get("daily", []):
+                try:
+                    date = datetime.strptime(day_data["fxDate"], "%Y-%m-%d").date()
+                    if date in daily_data:
+                        # Store the entire daily data dict for the date
+                        daily_data[date]["daily"] = day_data
+                        _LOGGER.debug(f"为日期 {date} 添加了每日数据: {day_data}")
+                    else:
+                        _LOGGER.warning(f"日期 {date} 的每日数据在小时数据中未找到，已跳过。")
+                except (ValueError, KeyError) as e:
+                    _LOGGER.warning(f"解析每日数据时出错: {day_data}, 错误: {e}")
 
             # Log the number of hours fetched per day
             for date, data in daily_data.items():
-                 _LOGGER.debug(f"日期 {date} 获取到 {len(data.get('hourly',[]))} 条小时数据")
+                _LOGGER.debug(f"日期 {date} 获取到 {len(data.get('hourly',[]))} 条小时数据")
 
             return daily_data
 
+        except ConfigEntryAuthFailed:
+            # 让认证错误继续向上抛出以触发 reauth
+            raise
         except requests.exceptions.RequestException as req_err:
-            _LOGGER.error("请求和风天气API时网络错误: %s", req_err, exc_info=True)
-            return None
+            raise UpdateFailed(f"请求和风天气API时网络错误: {req_err}") from req_err
+        except UpdateFailed:
+            raise
         except Exception as e:
-            _LOGGER.error("处理天气数据时发生意外错误: %s", e, exc_info=True)
-            return None
+            raise UpdateFailed(f"处理天气数据时发生意外错误: {e}") from e
 
     def get_air_quality_data(self) -> Optional[Dict]:
         """Get air quality data from QWeather API."""
