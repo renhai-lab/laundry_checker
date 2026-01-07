@@ -111,21 +111,32 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             today_air_quality = (
                 air_quality_data.get(today, {}) if air_quality_data else {}
             )
+            # Helper to filter hours based on valid drying window
+            def filter_hours(hours):
+                return [
+                    h for h in hours
+                    if self.start_hour <= datetime.fromisoformat(h["fxTime"]).hour <= self.end_hour
+                ]
+
+            today_data = []
+            today_daily_data = {}
+            # Initialize with empty list to prevent unbounded locals error if unused
+            today_all_hours = []
+
             if today_info and today_info.get("hourly"):
-                today_data = today_info.get("hourly", [])
+                today_all_hours = today_info.get("hourly", [])
                 today_daily_data = today_info.get("daily", {})
+                
+                # Try to filter by preferred hours
+                today_data = filter_hours(today_all_hours)
+                
+                # If no hours in preferred range (e.g. late night), use all available hours
+                # This ensures we always show *something* for the current day
+                if not today_data and today_all_hours:
+                    _LOGGER.debug("当前时间超出设定晾晒时段，使用剩余所有小时数据")
+                    today_data = today_all_hours
             else:
-                # Check if current time is past the end hour for today
-                current_hour = datetime.now().hour
-                if current_hour >= self.end_hour:
-                    _LOGGER.debug(
-                        "今日晾晒时段 (%s:00-%s:00) 已过或API未返回该时段数据，未获取到今天的小时数据",
-                        self.start_hour,
-                        self.end_hour,
-                    )
-                else:
-                    _LOGGER.warning("无法获取今天的小时天气数据")
-                # Keep today_data as empty list
+                _LOGGER.warning("无法获取今天的小时天气数据")
 
             tomorrow_data = []
             tomorrow_daily_data = {}
@@ -133,13 +144,14 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 air_quality_data.get(tomorrow, {}) if air_quality_data else {}
             )
             if tomorrow_info and tomorrow_info.get("hourly"):
-                tomorrow_data = tomorrow_info.get("hourly", [])
+                tomorrow_all_hours = tomorrow_info.get("hourly", [])
                 tomorrow_daily_data = tomorrow_info.get("daily", {})
+                # Strictly filter tomorrow's data (plan for the future only in drying window)
+                tomorrow_data = filter_hours(tomorrow_all_hours)
             else:
                 # It's less critical if tomorrow's data is missing initially,
                 # but we can still log a warning if needed.
                 _LOGGER.warning("无法获取明天的小时天气数据")
-                # Keep tomorrow_data as empty list
 
             # 处理今天的天气适宜性
             is_suitable, message, stats = await self.hass.async_add_executor_job(
@@ -174,7 +186,8 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             future_days = []
             for date, data in sorted(weather_data.items()):
                 if date > tomorrow:
-                    hourly_info = data.get("hourly", [])
+                    hourly_all = data.get("hourly", [])
+                    hourly_info = filter_hours(hourly_all)
                     daily_info = data.get("daily", {})
                     future_air_quality = (
                         air_quality_data.get(date, {}) if air_quality_data else {}
@@ -380,9 +393,8 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                     if date not in daily_data:
                         daily_data[date] = {"hourly": [], "daily": {}}
 
-                    # Filter hours based on start and end times
-                    if self.start_hour <= hour_time <= self.end_hour:
-                        daily_data[date]["hourly"].append(hour)
+                    # Filter hours logic moved to _async_update_data
+                    daily_data[date]["hourly"].append(hour)
                 except (ValueError, KeyError) as e:
                     _LOGGER.warning(f"解析小时数据时出错: {hour}, 错误: {e}")
 
