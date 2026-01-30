@@ -319,6 +319,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 },
                 "last_update": datetime.now(),
                 "multi_day_forecast": True,
+                "detailed_message": detailed_message,
                 "tomorrow_detail": tomorrow_detail,
                 "future_days": future_days,
             }
