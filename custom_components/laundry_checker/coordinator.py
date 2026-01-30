@@ -507,9 +507,6 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         air_quality_data: Optional[dict] = None,
     ) -> tuple:
         """Check if weather is suitable for laundry."""
-        if not hourly_data:
-            return False, "无法获取天气数据", {}
-
         stats = {
             "suitable_hours": 0,
             "avg_humidity": 0,
@@ -524,6 +521,9 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             "aqi_level": "",
             "primary_pollutant": "",
         }
+
+        if not hourly_data:
+            return False, "无法获取天气数据", stats
 
         # 添加空气质量数据到stats
         if air_quality_data:
