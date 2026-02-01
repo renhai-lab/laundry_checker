@@ -109,22 +109,22 @@
             "laundry_advice": {
                 "name": "洗衣建议",
                 "state": {
-                    "on": "建议晾衣",
-                    "off": "不建议晾衣"
+                    "on": "适合晾衣",
+                    "off": "不适合晾衣"
                 }
             },
             "today_s_laundry_advice": {
                 "name": "今日洗衣建议",
                 "state": {
-                    "on": "建议晾衣",
-                    "off": "不建议晾衣"
+                    "on": "适合晾衣",
+                    "off": "不适合晾衣"
                 }
             },
             "tomorrow_s_laundry_advice": {
                 "name": "明日洗衣建议",
                 "state": {
-                    "on": "建议晾衣",
-                    "off": "不建议晾衣"
+                    "on": "适合晾衣",
+                    "off": "不适合晾衣"
                 }
             }
         },

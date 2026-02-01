@@ -25,7 +25,7 @@
   - 晾衣和收衣时间段
   - 更新间隔
 - **新增：提供未来三天详细天气预报**
-- **新增：空气质量检测，灰尘污染大时不建议晾衣**
+- **新增：空气质量检测，灰尘污染大时不适合晾衣**
 - **新增：降雨提醒传感器（6小时内/明天/后天）**
 
 ## 安装
@@ -130,8 +130,7 @@ automation:
 
 ### 详细多天预报通知示例
 
-这个自动化会在每天晚上8点发送未来三天的天气和晾衣预报。
-
+这个自动化会在每天晚上8点发送未来三天的天气和晾衣预报。以下sensor的名称需要根据你的名称来修改。
 ```yaml
 automation:
   - alias: "每日天气晾衣预报"
@@ -141,7 +140,7 @@ automation:
     action:
       - service: notify.mobile_app_your_phone
         data:
-          title: "洗衣天气预报 (未来三天)"
+          title: "明天我的家{{ '适合晾衣' if is_state('binary_sensor.laundry_checker_tomorrow_s_laundry_advice', 'on') else '不适合晾衣' }}
           message: "{{ state_attr('binary_sensor.laundry_checker_tomorrow_s_laundry_advice', 'detailed_message') }}"
 ```
 
