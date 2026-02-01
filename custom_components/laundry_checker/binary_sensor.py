@@ -53,7 +53,7 @@ class LaundryCheckerBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
     _attr_has_entity_name = True
     _attr_name = "Today's Laundry Advice"
-    _attr_device_class = BinarySensorDeviceClass.RUNNING
+    _attr_translation_key = "today_s_laundry_advice"
     _attr_icon = "mdi:washing-machine"
 
     def __init__(
@@ -121,7 +121,7 @@ class TomorrowLaundryCheckerBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
     _attr_has_entity_name = True
     _attr_name = "Tomorrow's Laundry Advice"
-    _attr_device_class = BinarySensorDeviceClass.RUNNING
+    _attr_translation_key = "tomorrow_s_laundry_advice"
     _attr_icon = "mdi:washing-machine-alert"
 
     def __init__(

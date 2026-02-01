@@ -1,6 +1,6 @@
 [project]
 name = "laundry_checker"
-version = "0.1.8"
+version = "0.1.10"
 description = "Home Assistant custom component to check if it's suitable for laundry based on weather forecast."
 authors = [
     {name = "renhai-lab", email = "renhai@renhai.online"},

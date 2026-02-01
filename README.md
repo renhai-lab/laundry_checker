@@ -102,7 +102,7 @@
   - `sensor.laundry_checker_rain_within_6h`：6小时内是否下雨
   - `sensor.laundry_checker_rain_tomorrow`：明天是否下雨
   - `sensor.laundry_checker_rain_day_after_tomorrow`：后天是否下雨
-  - 状态：`rain` / `no_rain`
+  - 状态：`下雨` / `不下雨`（中文）或 `Rainy` / `No Rain`（英文）
   - 常用属性：
     - `rain_level`：降雨等级（无雨/小雨/中雨/大雨/暴雨）
     - `rain_hours`：窗口内预计下雨小时数

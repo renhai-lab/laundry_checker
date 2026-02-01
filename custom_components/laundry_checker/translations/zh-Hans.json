@@ -76,8 +76,8 @@
         "options": {
             "step": {
                 "init": {
-                    "title": "晾晒适宜检测选项",
-                    "description": "配置晾晒检查器选项。",
+                    "title": "洗衣检查器选项",
+                    "description": "配置洗衣检查器选项",
                     "data": {
                         "location": "自定义位置 (经纬度)",
                         "max_suitable_humidity": "最大晾晒湿度 (%)",
@@ -107,7 +107,25 @@
     "entity": {
         "binary_sensor": {
             "laundry_advice": {
-                "name": "洗衣建议"
+                "name": "洗衣建议",
+                "state": {
+                    "on": "建议晾衣",
+                    "off": "不建议晾衣"
+                }
+            },
+            "today_s_laundry_advice": {
+                "name": "今日洗衣建议",
+                "state": {
+                    "on": "建议晾衣",
+                    "off": "不建议晾衣"
+                }
+            },
+            "tomorrow_s_laundry_advice": {
+                "name": "明日洗衣建议",
+                "state": {
+                    "on": "建议晾衣",
+                    "off": "不建议晾衣"
+                }
             }
         },
         "sensor": {
@@ -115,13 +133,25 @@
                 "name": "预计晾干时间"
             },
             "rain_within_6h": {
-                "name": "6小时内是否下雨"
+                "name": "6小时内是否下雨",
+                "state": {
+                    "rain": "下雨",
+                    "no_rain": "不下雨"
+                }
             },
             "rain_tomorrow": {
-                "name": "明天是否下雨"
+                "name": "明天是否下雨",
+                "state": {
+                    "rain": "下雨",
+                    "no_rain": "不下雨"
+                }
             },
             "rain_day_after_tomorrow": {
-                "name": "后天是否下雨"
+                "name": "后天是否下雨",
+                "state": {
+                    "rain": "下雨",
+                    "no_rain": "不下雨"
+                }
             }
         }
     }

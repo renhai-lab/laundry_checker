@@ -67,7 +67,25 @@
     "entity": {
         "binary_sensor": {
             "laundry_advice": {
-                "name": "Laundry Advice"
+                "name": "Laundry Advice",
+                "state": {
+                    "on": "Recommended",
+                    "off": "Not Recommended"
+                }
+            },
+            "today_s_laundry_advice": {
+                "name": "Today's Laundry Advice",
+                "state": {
+                    "on": "Recommended",
+                    "off": "Not Recommended"
+                }
+            },
+            "tomorrow_s_laundry_advice": {
+                "name": "Tomorrow's Laundry Advice",
+                "state": {
+                    "on": "Recommended",
+                    "off": "Not Recommended"
+                }
             }
         },
         "sensor": {
@@ -75,13 +93,25 @@
                 "name": "Estimated Drying Time"
             },
             "rain_within_6h": {
-                "name": "Rain Within 6 Hours"
+                "name": "Rain Within 6 Hours",
+                "state": {
+                    "rain": "Rainy",
+                    "no_rain": "No Rain"
+                }
             },
             "rain_tomorrow": {
-                "name": "Rain Tomorrow"
+                "name": "Rain Tomorrow",
+                "state": {
+                    "rain": "Rainy",
+                    "no_rain": "No Rain"
+                }
             },
             "rain_day_after_tomorrow": {
-                "name": "Rain Day After Tomorrow"
+                "name": "Rain Day After Tomorrow",
+                "state": {
+                    "rain": "Rainy",
+                    "no_rain": "No Rain"
+                }
             }
         }
     }

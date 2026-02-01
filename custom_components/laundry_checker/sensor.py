@@ -45,6 +45,7 @@ async def async_setup_entry(
                 "next_6h",
                 RAIN_WITHIN_6H_SENSOR_NAME,
                 "rain_within_6h",
+                "rain_within_6h",
             ),
             RainForecastSensor(
                 coordinator,
@@ -52,12 +53,14 @@ async def async_setup_entry(
                 "tomorrow",
                 RAIN_TOMORROW_SENSOR_NAME,
                 "rain_tomorrow",
+                "rain_tomorrow",
             ),
             RainForecastSensor(
                 coordinator,
                 entry,
                 "day_after_tomorrow",
                 RAIN_DAY_AFTER_TOMORROW_SENSOR_NAME,
+                "rain_day_after_tomorrow",
                 "rain_day_after_tomorrow",
             ),
         ],
@@ -136,6 +139,7 @@ class RainForecastSensor(CoordinatorEntity, SensorEntity):
         period_key: str,
         name: str,
         unique_id_suffix: str,
+        translation_key: str,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
@@ -143,6 +147,7 @@ class RainForecastSensor(CoordinatorEntity, SensorEntity):
         self._period_key = period_key
         self._attr_name = name
         self._attr_unique_id = f"{entry.entry_id}_{unique_id_suffix}"
+        self._attr_translation_key = translation_key
 
     @property
     def native_value(self) -> Optional[str]:
