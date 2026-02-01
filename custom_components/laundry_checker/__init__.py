@@ -35,10 +35,12 @@ from .const import (
     CONF_RAIN_MODERATE_THRESHOLD,
     CONF_RAIN_HEAVY_THRESHOLD,
     CONF_RAIN_STORM_THRESHOLD,
+    CONF_RAIN_WORK_COMMUTE_HOURS,
     DEFAULT_RAIN_LIGHT_THRESHOLD,
     DEFAULT_RAIN_MODERATE_THRESHOLD,
     DEFAULT_RAIN_HEAVY_THRESHOLD,
     DEFAULT_RAIN_STORM_THRESHOLD,
+    DEFAULT_RAIN_WORK_COMMUTE_HOURS,
 )
 from .coordinator import LaundryCheckerDataUpdateCoordinator
 
@@ -99,6 +101,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         CONF_RAIN_STORM_THRESHOLD,
         entry.data.get(CONF_RAIN_STORM_THRESHOLD, DEFAULT_RAIN_STORM_THRESHOLD),
     )
+    rain_work_commute_hours = entry_options.get(
+        CONF_RAIN_WORK_COMMUTE_HOURS,
+        entry.data.get(CONF_RAIN_WORK_COMMUTE_HOURS, DEFAULT_RAIN_WORK_COMMUTE_HOURS),
+    )
 
     coordinator = LaundryCheckerDataUpdateCoordinator(
         hass=hass,
@@ -117,6 +123,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         rain_moderate_threshold=rain_moderate_threshold,
         rain_heavy_threshold=rain_heavy_threshold,
         rain_storm_threshold=rain_storm_threshold,
+        rain_work_commute_hours=rain_work_commute_hours,
     )
 
     try:

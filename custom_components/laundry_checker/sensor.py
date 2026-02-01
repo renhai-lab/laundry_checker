@@ -17,6 +17,7 @@ from .const import (
     ATTR_ESTIMATED_DRYING_TIME,
     DRYING_TIME_SENSOR_NAME,
     RAIN_WITHIN_6H_SENSOR_NAME,
+    RAIN_WORK_COMMUTE_SENSOR_NAME,
     RAIN_TOMORROW_SENSOR_NAME,
     RAIN_DAY_AFTER_TOMORROW_SENSOR_NAME,
     ATTR_WILL_RAIN,
@@ -46,6 +47,14 @@ async def async_setup_entry(
                 RAIN_WITHIN_6H_SENSOR_NAME,
                 "rain_within_6h",
                 "rain_within_6h",
+            ),
+            RainForecastSensor(
+                coordinator,
+                entry,
+                "work_commute",
+                RAIN_WORK_COMMUTE_SENSOR_NAME,
+                "rain_work_commute",
+                "rain_work_commute",
             ),
             RainForecastSensor(
                 coordinator,

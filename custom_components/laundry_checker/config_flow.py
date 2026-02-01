@@ -29,6 +29,7 @@ from .const import (
     CONF_RAIN_MODERATE_THRESHOLD,
     CONF_RAIN_HEAVY_THRESHOLD,
     CONF_RAIN_STORM_THRESHOLD,
+    CONF_RAIN_WORK_COMMUTE_HOURS,
     DEFAULT_LOCATION,
     DEFAULT_MAX_SUITABLE_HUMIDITY,
     DEFAULT_MIN_SUITABLE_HOURS,
@@ -45,6 +46,7 @@ from .const import (
     DEFAULT_RAIN_MODERATE_THRESHOLD,
     DEFAULT_RAIN_HEAVY_THRESHOLD,
     DEFAULT_RAIN_STORM_THRESHOLD,
+    DEFAULT_RAIN_WORK_COMMUTE_HOURS,
 )
 from .helpers import normalize_api_host
 
@@ -452,6 +454,16 @@ class LaundryCheckerOptionsFlow(config_entries.OptionsFlow):
                     ),
                 ),
             ): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
+            vol.Required(
+                CONF_RAIN_WORK_COMMUTE_HOURS,
+                default=entry_options.get(
+                    CONF_RAIN_WORK_COMMUTE_HOURS,
+                    entry_data.get(
+                        CONF_RAIN_WORK_COMMUTE_HOURS,
+                        DEFAULT_RAIN_WORK_COMMUTE_HOURS,
+                    ),
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=24)),
         }
 
         return self.async_show_form(step_id="init", data_schema=vol.Schema(options))

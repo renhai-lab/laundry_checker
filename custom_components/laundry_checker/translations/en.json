@@ -59,7 +59,8 @@
                     "rain_light_threshold": "Light Rain Threshold (mm/h)",
                     "rain_moderate_threshold": "Moderate Rain Threshold (mm/h)",
                     "rain_heavy_threshold": "Heavy Rain Threshold (mm/h)",
-                    "rain_storm_threshold": "Storm Threshold (mm/h)"
+                    "rain_storm_threshold": "Storm Threshold (mm/h)",
+                    "rain_work_commute_hours": "Work Commute Window Hours"
                 }
             }
         }
@@ -94,6 +95,13 @@
             },
             "rain_within_6h": {
                 "name": "Rain Within 6 Hours",
+                "state": {
+                    "rain": "Rainy",
+                    "no_rain": "No Rain"
+                }
+            },
+            "rain_work_commute": {
+                "name": "Rain During Work Commute Window",
                 "state": {
                     "rain": "Rainy",
                     "no_rain": "No Rain"

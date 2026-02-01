@@ -21,6 +21,7 @@ from .const import (
     DEFAULT_RAIN_MODERATE_THRESHOLD,
     DEFAULT_RAIN_HEAVY_THRESHOLD,
     DEFAULT_RAIN_STORM_THRESHOLD,
+    DEFAULT_RAIN_WORK_COMMUTE_HOURS,
 )
 from .helpers import normalize_api_host
 
@@ -55,6 +56,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         rain_moderate_threshold: float = DEFAULT_RAIN_MODERATE_THRESHOLD,
         rain_heavy_threshold: float = DEFAULT_RAIN_HEAVY_THRESHOLD,
         rain_storm_threshold: float = DEFAULT_RAIN_STORM_THRESHOLD,
+        rain_work_commute_hours: int = DEFAULT_RAIN_WORK_COMMUTE_HOURS,
     ) -> None:
         """Initialize."""
         super().__init__(
@@ -78,6 +80,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         self.rain_moderate_threshold = rain_moderate_threshold  # Default: 2.5
         self.rain_heavy_threshold = rain_heavy_threshold  # Default: 7.6
         self.rain_storm_threshold = rain_storm_threshold  # Default: 15.0
+        self.rain_work_commute_hours = max(1, min(24, int(rain_work_commute_hours)))
 
         if any(domain in self.api_host for domain in DEPRECATED_QWEATHER_DOMAINS):
             _LOGGER.warning(
@@ -766,9 +769,15 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
 
         all_hours.sort(key=lambda x: x[0])
 
-        # Next 6 hours window
-        upcoming_hours = [h for h in all_hours if h[2] >= h[3]][:6]
-        next_6h_metrics = self._compute_rain_metrics([h[1] for h in upcoming_hours])
+        # Next 6 hours window (fixed)
+        upcoming_hours = [h for h in all_hours if h[2] >= h[3]]
+        next_6h_metrics = self._compute_rain_metrics([h[1] for h in upcoming_hours[:6]])
+
+        # Work commute window (configurable)
+        commute_hours = self.rain_work_commute_hours
+        work_commute_metrics = self._compute_rain_metrics(
+            [h[1] for h in upcoming_hours[:commute_hours]]
+        )
 
         # Tomorrow and day after tomorrow (by date)
         tomorrow_hours = [h for h in all_hours if h[0].date() == tomorrow]
@@ -776,6 +785,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
 
         return {
             "next_6h": next_6h_metrics,
+            "work_commute": work_commute_metrics,
             "tomorrow": self._compute_rain_metrics([h[1] for h in tomorrow_hours]),
             "day_after_tomorrow": self._compute_rain_metrics(
                 [h[1] for h in day_after_hours]

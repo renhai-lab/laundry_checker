@@ -10,3 +10,4 @@
 - **End Hour**: End hour for laundry (default: `22`).
 - **Preferred End Hour**: Preferred end hour for laundry (default: `18`).
 - **Unsuitable Weather Types**: List of unsuitable weather types (default: empty list).
+- **Work Commute Window Hours**: Rain window for work commute checks (range `1–24`, default: `12`).

@@ -92,7 +92,8 @@
                         "rain_light_threshold": "小雨阈值 (毫米/小时)",
                         "rain_moderate_threshold": "中雨阈值 (毫米/小时)",
                         "rain_heavy_threshold": "大雨阈值 (毫米/小时)",
-                        "rain_storm_threshold": "暴雨阈值 (毫米/小时)"
+                        "rain_storm_threshold": "暴雨阈值 (毫米/小时)",
+                        "rain_work_commute_hours": "上班通勤窗口小时数"
                     }
                 }
             },
@@ -134,6 +135,13 @@
             },
             "rain_within_6h": {
                 "name": "6小时内是否下雨",
+                "state": {
+                    "rain": "下雨",
+                    "no_rain": "不下雨"
+                }
+            },
+            "rain_work_commute": {
+                "name": "通勤窗口是否下雨",
                 "state": {
                     "rain": "下雨",
                     "no_rain": "不下雨"
