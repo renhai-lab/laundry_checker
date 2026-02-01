@@ -45,9 +45,21 @@
         "step": {
             "init": {
                 "title": "Laundry Checker Options",
-                "description": "Configure update interval",
+                "description": "Configure Laundry Checker options",
                 "data": {
-                    "scan_interval": "Update Interval (hours)"
+                    "scan_interval": "Update Interval (hours)",
+                    "max_suitable_humidity": "Maximum Suitable Humidity (%)",
+                    "min_suitable_hours": "Minimum Suitable Hours",
+                    "max_pop": "Maximum Precipitation Probability (%)",
+                    "max_aqi": "Maximum Air Quality Index (AQI)",
+                    "start_hour": "Start Hour",
+                    "end_hour": "End Hour",
+                    "preferred_end_hour": "Preferred End Hour",
+                    "unsuitable_weather_types": "Unsuitable Weather Types",
+                    "rain_light_threshold": "Light Rain Threshold (mm/h)",
+                    "rain_moderate_threshold": "Moderate Rain Threshold (mm/h)",
+                    "rain_heavy_threshold": "Heavy Rain Threshold (mm/h)",
+                    "rain_storm_threshold": "Storm Threshold (mm/h)"
                 }
             }
         }

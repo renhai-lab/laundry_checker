@@ -30,6 +30,15 @@ from .const import (
     CONF_MAX_AQI,
     DEFAULT_MAX_AQI,
     DEFAULT_QWEATHER_API_HOST,
+    CONF_UNSUITABLE_WEATHER_TYPES,
+    CONF_RAIN_LIGHT_THRESHOLD,
+    CONF_RAIN_MODERATE_THRESHOLD,
+    CONF_RAIN_HEAVY_THRESHOLD,
+    CONF_RAIN_STORM_THRESHOLD,
+    DEFAULT_RAIN_LIGHT_THRESHOLD,
+    DEFAULT_RAIN_MODERATE_THRESHOLD,
+    DEFAULT_RAIN_HEAVY_THRESHOLD,
+    DEFAULT_RAIN_STORM_THRESHOLD,
 )
 from .coordinator import LaundryCheckerDataUpdateCoordinator
 
@@ -53,21 +62,61 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         # 使用Home Assistant的配置位置
         location = f"{hass.config.longitude},{hass.config.latitude}"
 
+    entry_options = entry.options
+
+    max_suitable_humidity = entry_options.get(
+        CONF_MAX_SUITABLE_HUMIDITY, entry.data[CONF_MAX_SUITABLE_HUMIDITY]
+    )
+    min_suitable_hours = entry_options.get(
+        CONF_MIN_SUITABLE_HOURS, entry.data[CONF_MIN_SUITABLE_HOURS]
+    )
+    max_pop = entry_options.get(CONF_MAX_POP, entry.data[CONF_MAX_POP])
+    start_hour = entry_options.get(CONF_START_HOUR, entry.data[CONF_START_HOUR])
+    end_hour = entry_options.get(CONF_END_HOUR, entry.data[CONF_END_HOUR])
+    preferred_end_hour = entry_options.get(
+        CONF_PREFERRED_END_HOUR, entry.data[CONF_PREFERRED_END_HOUR]
+    )
+    max_aqi = entry_options.get(
+        CONF_MAX_AQI, entry.data.get(CONF_MAX_AQI, DEFAULT_MAX_AQI)
+    )
+    unsuitable_weather_types = entry_options.get(
+        CONF_UNSUITABLE_WEATHER_TYPES,
+        entry.data.get(CONF_UNSUITABLE_WEATHER_TYPES, DEFAULT_UNSUITABLE_WEATHER_TYPES),
+    )
+    rain_light_threshold = entry_options.get(
+        CONF_RAIN_LIGHT_THRESHOLD,
+        entry.data.get(CONF_RAIN_LIGHT_THRESHOLD, DEFAULT_RAIN_LIGHT_THRESHOLD),
+    )
+    rain_moderate_threshold = entry_options.get(
+        CONF_RAIN_MODERATE_THRESHOLD,
+        entry.data.get(CONF_RAIN_MODERATE_THRESHOLD, DEFAULT_RAIN_MODERATE_THRESHOLD),
+    )
+    rain_heavy_threshold = entry_options.get(
+        CONF_RAIN_HEAVY_THRESHOLD,
+        entry.data.get(CONF_RAIN_HEAVY_THRESHOLD, DEFAULT_RAIN_HEAVY_THRESHOLD),
+    )
+    rain_storm_threshold = entry_options.get(
+        CONF_RAIN_STORM_THRESHOLD,
+        entry.data.get(CONF_RAIN_STORM_THRESHOLD, DEFAULT_RAIN_STORM_THRESHOLD),
+    )
+
     coordinator = LaundryCheckerDataUpdateCoordinator(
         hass=hass,
         location=location,
         qweather_key=entry.data[CONF_QWEATHER_KEY],
-        api_host=entry.data.get(
-            CONF_QWEATHER_API_HOST, DEFAULT_QWEATHER_API_HOST
-        ),
-        max_suitable_humidity=entry.data[CONF_MAX_SUITABLE_HUMIDITY],
-        min_suitable_hours=entry.data[CONF_MIN_SUITABLE_HOURS],
-        max_pop=entry.data[CONF_MAX_POP],
-        start_hour=entry.data[CONF_START_HOUR],
-        end_hour=entry.data[CONF_END_HOUR],
-        preferred_end_hour=entry.data[CONF_PREFERRED_END_HOUR],
-        unsuitable_weather_types=DEFAULT_UNSUITABLE_WEATHER_TYPES,
-        max_aqi=entry.data.get(CONF_MAX_AQI, DEFAULT_MAX_AQI),
+        api_host=entry.data.get(CONF_QWEATHER_API_HOST, DEFAULT_QWEATHER_API_HOST),
+        max_suitable_humidity=max_suitable_humidity,
+        min_suitable_hours=min_suitable_hours,
+        max_pop=max_pop,
+        start_hour=start_hour,
+        end_hour=end_hour,
+        preferred_end_hour=preferred_end_hour,
+        unsuitable_weather_types=unsuitable_weather_types,
+        max_aqi=max_aqi,
+        rain_light_threshold=rain_light_threshold,
+        rain_moderate_threshold=rain_moderate_threshold,
+        rain_heavy_threshold=rain_heavy_threshold,
+        rain_storm_threshold=rain_storm_threshold,
     )
 
     try:
@@ -85,7 +134,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     }
 
     # 获取配置
-    scan_interval = entry.options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    scan_interval = entry_options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
 
     # 设置coordinator的更新间隔
     coordinator.update_interval = timedelta(hours=scan_interval)
@@ -160,9 +209,7 @@ async def async_migrate_entry(hass: HomeAssistant, config_entry: ConfigEntry) ->
         new_data = {**config_entry.data}
         new_data.setdefault(CONF_QWEATHER_API_HOST, DEFAULT_QWEATHER_API_HOST)
 
-        hass.config_entries.async_update_entry(
-            config_entry, data=new_data, version=2
-        )
+        hass.config_entries.async_update_entry(config_entry, data=new_data, version=2)
         _LOGGER.info(
             "Migrated Laundry Checker config entry %s to version 2 to store the QWeather API host.",
             config_entry.entry_id,

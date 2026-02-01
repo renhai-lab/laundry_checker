@@ -17,10 +17,10 @@ from .const import (
     DEFAULT_MAX_AQI,
     DEFAULT_QWEATHER_API_HOST,
     DEPRECATED_QWEATHER_DOMAINS,
-    RAIN_LIGHT_THRESHOLD,
-    RAIN_MODERATE_THRESHOLD,
-    RAIN_HEAVY_THRESHOLD,
-    RAIN_STORM_THRESHOLD,
+    DEFAULT_RAIN_LIGHT_THRESHOLD,
+    DEFAULT_RAIN_MODERATE_THRESHOLD,
+    DEFAULT_RAIN_HEAVY_THRESHOLD,
+    DEFAULT_RAIN_STORM_THRESHOLD,
 )
 from .helpers import normalize_api_host
 
@@ -51,6 +51,10 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         preferred_end_hour: int = 18,
         unsuitable_weather_types: Optional[list] = None,
         max_aqi: int = DEFAULT_MAX_AQI,
+        rain_light_threshold: float = DEFAULT_RAIN_LIGHT_THRESHOLD,
+        rain_moderate_threshold: float = DEFAULT_RAIN_MODERATE_THRESHOLD,
+        rain_heavy_threshold: float = DEFAULT_RAIN_HEAVY_THRESHOLD,
+        rain_storm_threshold: float = DEFAULT_RAIN_STORM_THRESHOLD,
     ) -> None:
         """Initialize."""
         super().__init__(
@@ -62,14 +66,18 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
         self._location = location
         self.qweather_key = qweather_key
         self.api_host = normalize_api_host(api_host)
-        self.max_suitable_humidity = max_suitable_humidity
-        self.min_suitable_hours = min_suitable_hours
-        self.max_pop = max_pop
-        self.start_hour = start_hour
-        self.end_hour = end_hour
-        self.preferred_end_hour = preferred_end_hour
-        self.unsuitable_weather_types = unsuitable_weather_types or []
-        self.max_aqi = max_aqi
+        self.max_suitable_humidity = max_suitable_humidity  # Default: 85.0
+        self.min_suitable_hours = min_suitable_hours  # Default: 6
+        self.max_pop = max_pop  # Default: 0
+        self.start_hour = start_hour  # Default: 6
+        self.end_hour = end_hour  # Default: 22
+        self.preferred_end_hour = preferred_end_hour  # Default: 18
+        self.unsuitable_weather_types = unsuitable_weather_types or []  # Default: []
+        self.max_aqi = max_aqi  # Default: DEFAULT_MAX_AQI
+        self.rain_light_threshold = rain_light_threshold  # Default: 0.1
+        self.rain_moderate_threshold = rain_moderate_threshold  # Default: 2.5
+        self.rain_heavy_threshold = rain_heavy_threshold  # Default: 7.6
+        self.rain_storm_threshold = rain_storm_threshold  # Default: 15.0
 
         if any(domain in self.api_host for domain in DEPRECATED_QWEATHER_DOMAINS):
             _LOGGER.warning(
@@ -115,11 +123,15 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             today_air_quality = (
                 air_quality_data.get(today, {}) if air_quality_data else {}
             )
+
             # Helper to filter hours based on valid drying window
             def filter_hours(hours):
                 return [
-                    h for h in hours
-                    if self.start_hour <= datetime.fromisoformat(h["fxTime"]).hour <= self.end_hour
+                    h
+                    for h in hours
+                    if self.start_hour
+                    <= datetime.fromisoformat(h["fxTime"]).hour
+                    <= self.end_hour
                 ]
 
             today_data = []
@@ -130,10 +142,10 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             if today_info and today_info.get("hourly"):
                 today_all_hours = today_info.get("hourly", [])
                 today_daily_data = today_info.get("daily", {})
-                
+
                 # Try to filter by preferred hours
                 today_data = filter_hours(today_all_hours)
-                
+
                 # If no hours in preferred range (e.g. late night), use all available hours
                 # This ensures we always show *something* for the current day
                 if not today_data and today_all_hours:
@@ -789,7 +801,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             max_precip = max(max_precip, precip)
             max_pop = max(max_pop, pop)
 
-            if precip >= RAIN_LIGHT_THRESHOLD:
+            if precip >= self.rain_light_threshold:
                 rain_hours += 1
 
         rain_level = self._get_rain_level(max_precip)
@@ -806,12 +818,12 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _get_rain_level(self, max_precip: float) -> str:
         """Get rain level name based on max hourly precipitation."""
-        if max_precip >= RAIN_STORM_THRESHOLD:
+        if max_precip >= self.rain_storm_threshold:
             return "暴雨"
-        if max_precip >= RAIN_HEAVY_THRESHOLD:
+        if max_precip >= self.rain_heavy_threshold:
             return "大雨"
-        if max_precip >= RAIN_MODERATE_THRESHOLD:
+        if max_precip >= self.rain_moderate_threshold:
             return "中雨"
-        if max_precip >= RAIN_LIGHT_THRESHOLD:
+        if max_precip >= self.rain_light_threshold:
             return "小雨"
         return "无雨"

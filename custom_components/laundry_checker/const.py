@@ -17,6 +17,10 @@ CONF_UNSUITABLE_WEATHER_TYPES = "unsuitable_weather_types"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_USE_HA_LOCATION = "use_ha_location"
 CONF_MAX_AQI = "max_aqi"
+CONF_RAIN_LIGHT_THRESHOLD = "rain_light_threshold"
+CONF_RAIN_MODERATE_THRESHOLD = "rain_moderate_threshold"
+CONF_RAIN_HEAVY_THRESHOLD = "rain_heavy_threshold"
+CONF_RAIN_STORM_THRESHOLD = "rain_storm_threshold"
 
 # 默认值
 DEFAULT_LOCATION = "112.15,20.28"  # 默认经纬度坐标
@@ -88,10 +92,10 @@ ATTR_MAX_HOURLY_PRECIP = "max_hourly_precipitation"
 ATTR_RAIN_MAX_POP = "max_precipitation_probability"
 
 # 降雨分级阈值（按逐小时累计降水量，单位：毫米）
-RAIN_LIGHT_THRESHOLD = 0.1
-RAIN_MODERATE_THRESHOLD = 2.5
-RAIN_HEAVY_THRESHOLD = 7.6
-RAIN_STORM_THRESHOLD = 15.0
+DEFAULT_RAIN_LIGHT_THRESHOLD = 0.1
+DEFAULT_RAIN_MODERATE_THRESHOLD = 2.5
+DEFAULT_RAIN_HEAVY_THRESHOLD = 7.6
+DEFAULT_RAIN_STORM_THRESHOLD = 15.0
 
 # 晾晒指数类型ID
 DRYING_INDEX_TYPE = "13"

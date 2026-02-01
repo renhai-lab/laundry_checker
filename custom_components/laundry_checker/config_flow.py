@@ -10,7 +10,6 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
 import homeassistant.helpers.config_validation as cv
-from homeassistant.const import CONF_API_KEY
 
 from .const import (
     DOMAIN,
@@ -25,6 +24,11 @@ from .const import (
     CONF_QWEATHER_API_HOST,
     CONF_SCAN_INTERVAL,
     CONF_MAX_AQI,
+    CONF_UNSUITABLE_WEATHER_TYPES,
+    CONF_RAIN_LIGHT_THRESHOLD,
+    CONF_RAIN_MODERATE_THRESHOLD,
+    CONF_RAIN_HEAVY_THRESHOLD,
+    CONF_RAIN_STORM_THRESHOLD,
     DEFAULT_LOCATION,
     DEFAULT_MAX_SUITABLE_HUMIDITY,
     DEFAULT_MIN_SUITABLE_HOURS,
@@ -36,6 +40,11 @@ from .const import (
     DEFAULT_MAX_AQI,
     CONF_USE_HA_LOCATION,
     DEFAULT_QWEATHER_API_HOST,
+    DEFAULT_UNSUITABLE_WEATHER_TYPES,
+    DEFAULT_RAIN_LIGHT_THRESHOLD,
+    DEFAULT_RAIN_MODERATE_THRESHOLD,
+    DEFAULT_RAIN_HEAVY_THRESHOLD,
+    DEFAULT_RAIN_STORM_THRESHOLD,
 )
 from .helpers import normalize_api_host
 
@@ -44,9 +53,7 @@ CONF_MANUAL_LOCATION = "manual_location"
 LOCATION_TYPE = "location_type"
 
 
-async def validate_api_key(
-    hass: HomeAssistant, api_key: str, api_host: str
-) -> bool:
+async def validate_api_key(hass: HomeAssistant, api_key: str, api_host: str) -> bool:
     """验证和风天气API密钥是否有效。"""
     base_url = normalize_api_host(api_host)
     url = f"{base_url}/v7/weather/now"
@@ -110,7 +117,7 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self):
         """Initialize the config flow."""
-        self._api_key = None
+        self._api_key: str = ""
         self._entry_data = {}
         self._reauth_entry = None
         self._cities = []
@@ -123,8 +130,7 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """处理初始步骤，输入API密钥。"""
         errors = {}
         default_host = (
-            self._entry_data.get(CONF_QWEATHER_API_HOST)
-            or DEFAULT_QWEATHER_API_HOST
+            self._entry_data.get(CONF_QWEATHER_API_HOST) or DEFAULT_QWEATHER_API_HOST
         )
         schema = vol.Schema(
             {
@@ -136,9 +142,7 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._api_key = user_input[CONF_QWEATHER_KEY]
             try:
-                self._api_host = normalize_api_host(
-                    user_input[CONF_QWEATHER_API_HOST]
-                )
+                self._api_host = normalize_api_host(user_input[CONF_QWEATHER_API_HOST])
             except ValueError:
                 errors["base"] = "invalid_api_host"
                 return self.async_show_form(
@@ -204,9 +208,7 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             city = user_input[CONF_CITY]
-            cities = await search_city(
-                self.hass, self._api_key, self._api_host, city
-            )
+            cities = await search_city(self.hass, self._api_key, self._api_host, city)
 
             if not cities:
                 errors["base"] = "city_not_found"
@@ -342,21 +344,114 @@ class LaundryCheckerOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry):
         """Initialize options flow."""
-        # Home Assistant now sets config_entry automatically; avoid manual assignment (deprecated)
-        pass
+        self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Handle options flow."""
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
+        entry_data = self.config_entry.data
+        entry_options = self.config_entry.options
+
         options = {
             vol.Required(
                 CONF_SCAN_INTERVAL,
-                default=self.config_entry.options.get(
-                    CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
+                default=entry_options.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL),
+            ): vol.All(vol.Coerce(int), vol.Range(min=1, max=24)),
+            vol.Required(
+                CONF_MAX_SUITABLE_HUMIDITY,
+                default=entry_options.get(
+                    CONF_MAX_SUITABLE_HUMIDITY,
+                    entry_data.get(
+                        CONF_MAX_SUITABLE_HUMIDITY, DEFAULT_MAX_SUITABLE_HUMIDITY
+                    ),
+                ),
+            ): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
+            vol.Required(
+                CONF_MIN_SUITABLE_HOURS,
+                default=entry_options.get(
+                    CONF_MIN_SUITABLE_HOURS,
+                    entry_data.get(CONF_MIN_SUITABLE_HOURS, DEFAULT_MIN_SUITABLE_HOURS),
                 ),
             ): vol.All(vol.Coerce(int), vol.Range(min=1, max=24)),
+            vol.Required(
+                CONF_MAX_POP,
+                default=entry_options.get(
+                    CONF_MAX_POP, entry_data.get(CONF_MAX_POP, DEFAULT_MAX_POP)
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+            vol.Required(
+                CONF_MAX_AQI,
+                default=entry_options.get(
+                    CONF_MAX_AQI, entry_data.get(CONF_MAX_AQI, DEFAULT_MAX_AQI)
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=500)),
+            vol.Required(
+                CONF_START_HOUR,
+                default=entry_options.get(
+                    CONF_START_HOUR, entry_data.get(CONF_START_HOUR, DEFAULT_START_HOUR)
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
+            vol.Required(
+                CONF_END_HOUR,
+                default=entry_options.get(
+                    CONF_END_HOUR, entry_data.get(CONF_END_HOUR, DEFAULT_END_HOUR)
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
+            vol.Required(
+                CONF_PREFERRED_END_HOUR,
+                default=entry_options.get(
+                    CONF_PREFERRED_END_HOUR,
+                    entry_data.get(CONF_PREFERRED_END_HOUR, DEFAULT_PREFERRED_END_HOUR),
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
+            vol.Required(
+                CONF_UNSUITABLE_WEATHER_TYPES,
+                default=entry_options.get(
+                    CONF_UNSUITABLE_WEATHER_TYPES,
+                    entry_data.get(
+                        CONF_UNSUITABLE_WEATHER_TYPES,
+                        DEFAULT_UNSUITABLE_WEATHER_TYPES,
+                    ),
+                ),
+            ): cv.multi_select(DEFAULT_UNSUITABLE_WEATHER_TYPES),
+            vol.Required(
+                CONF_RAIN_LIGHT_THRESHOLD,
+                default=entry_options.get(
+                    CONF_RAIN_LIGHT_THRESHOLD,
+                    entry_data.get(
+                        CONF_RAIN_LIGHT_THRESHOLD, DEFAULT_RAIN_LIGHT_THRESHOLD
+                    ),
+                ),
+            ): vol.All(vol.Coerce(float), vol.Range(min=0, max=50)),
+            vol.Required(
+                CONF_RAIN_MODERATE_THRESHOLD,
+                default=entry_options.get(
+                    CONF_RAIN_MODERATE_THRESHOLD,
+                    entry_data.get(
+                        CONF_RAIN_MODERATE_THRESHOLD, DEFAULT_RAIN_MODERATE_THRESHOLD
+                    ),
+                ),
+            ): vol.All(vol.Coerce(float), vol.Range(min=0, max=50)),
+            vol.Required(
+                CONF_RAIN_HEAVY_THRESHOLD,
+                default=entry_options.get(
+                    CONF_RAIN_HEAVY_THRESHOLD,
+                    entry_data.get(
+                        CONF_RAIN_HEAVY_THRESHOLD, DEFAULT_RAIN_HEAVY_THRESHOLD
+                    ),
+                ),
+            ): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
+            vol.Required(
+                CONF_RAIN_STORM_THRESHOLD,
+                default=entry_options.get(
+                    CONF_RAIN_STORM_THRESHOLD,
+                    entry_data.get(
+                        CONF_RAIN_STORM_THRESHOLD, DEFAULT_RAIN_STORM_THRESHOLD
+                    ),
+                ),
+            ): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
         }
 
         return self.async_show_form(step_id="init", data_schema=vol.Schema(options))

@@ -88,7 +88,11 @@
                         "end_hour": "允许的最晚晾晒时间 (小时)",
                         "preferred_end_hour": "期望的最晚收衣时间 (小时)",
                         "unsuitable_weather_types": "避免晾晒的天气类型",
-                        "scan_interval": "天气检查间隔 (小时)"
+                        "scan_interval": "天气检查间隔 (小时)",
+                        "rain_light_threshold": "小雨阈值 (毫米/小时)",
+                        "rain_moderate_threshold": "中雨阈值 (毫米/小时)",
+                        "rain_heavy_threshold": "大雨阈值 (毫米/小时)",
+                        "rain_storm_threshold": "暴雨阈值 (毫米/小时)"
                     }
                 }
             },
