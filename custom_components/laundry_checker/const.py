@@ -80,6 +80,18 @@ ATTR_UV_INDEX = "uv_index"
 ATTR_AQI = "aqi"
 ATTR_AQI_LEVEL = "aqi_level"
 ATTR_PRIMARY_POLLUTANT = "primary_pollutant"
+ATTR_WILL_RAIN = "will_rain"
+ATTR_RAIN_LEVEL = "rain_level"
+ATTR_RAIN_HOURS = "rain_hours"
+ATTR_TOTAL_PRECIP = "total_precipitation"
+ATTR_MAX_HOURLY_PRECIP = "max_hourly_precipitation"
+ATTR_RAIN_MAX_POP = "max_precipitation_probability"
+
+# 降雨分级阈值（按逐小时累计降水量，单位：毫米）
+RAIN_LIGHT_THRESHOLD = 0.1
+RAIN_MODERATE_THRESHOLD = 2.5
+RAIN_HEAVY_THRESHOLD = 7.6
+RAIN_STORM_THRESHOLD = 15.0
 
 # 晾晒指数类型ID
 DRYING_INDEX_TYPE = "13"
@@ -87,6 +99,11 @@ DRYING_INDEX_TYPE = "13"
 # 传感器名称
 BINARY_SENSOR_NAME = "洗衣建议"
 DRYING_TIME_SENSOR_NAME = "Estimated Drying Time"
+
+# 降雨传感器名称
+RAIN_WITHIN_6H_SENSOR_NAME = "Rain Within 6 Hours"
+RAIN_TOMORROW_SENSOR_NAME = "Rain Tomorrow"
+RAIN_DAY_AFTER_TOMORROW_SENSOR_NAME = "Rain Day After Tomorrow"
 
 # 即将弃用的和风天气域名（用于日志警告）
 DEPRECATED_QWEATHER_DOMAINS = (

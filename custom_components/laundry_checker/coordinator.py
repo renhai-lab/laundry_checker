@@ -17,6 +17,10 @@ from .const import (
     DEFAULT_MAX_AQI,
     DEFAULT_QWEATHER_API_HOST,
     DEPRECATED_QWEATHER_DOMAINS,
+    RAIN_LIGHT_THRESHOLD,
+    RAIN_MODERATE_THRESHOLD,
+    RAIN_HEAVY_THRESHOLD,
+    RAIN_STORM_THRESHOLD,
 )
 from .helpers import normalize_api_host
 
@@ -210,6 +214,9 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                         }
                     )
 
+            # 计算降雨相关指标（6小时内 / 明天 / 后天）
+            rain_metrics = self._build_rain_metrics(weather_data)
+
             # 构建详细的多天预报消息
             tomorrow_str = tomorrow.strftime("%Y-%m-%d")
             detailed_message = f"🌈 未来三天晾衣预报 ({tomorrow_str})\n\n"
@@ -322,6 +329,7 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 "detailed_message": detailed_message,
                 "tomorrow_detail": tomorrow_detail,
                 "future_days": future_days,
+                "rain_forecast": rain_metrics,
             }
 
         except Exception as err:
@@ -722,3 +730,88 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
     def _build_api_url(self, path: str) -> str:
         """Build an absolute QWeather API URL based on the configured host."""
         return f"{self.api_host}/{path.lstrip('/')}"
+
+    def _build_rain_metrics(self, weather_data: Dict) -> Dict[str, Any]:
+        """Build rain metrics for next 6 hours, tomorrow, and day after tomorrow."""
+        now = datetime.now()
+        today = now.date()
+        tomorrow = today + timedelta(days=1)
+        day_after_tomorrow = today + timedelta(days=2)
+
+        # Flatten all hourly data into a list with parsed datetime
+        all_hours = []
+        for date_key, data in weather_data.items():
+            for hour in data.get("hourly", []):
+                try:
+                    fx_time = datetime.fromisoformat(hour["fxTime"])
+                    if fx_time.tzinfo is not None:
+                        now_ts = datetime.now(fx_time.tzinfo).timestamp()
+                    else:
+                        now_ts = now.timestamp()
+                    all_hours.append((fx_time, hour, fx_time.timestamp(), now_ts))
+                except (ValueError, KeyError):
+                    continue
+
+        all_hours.sort(key=lambda x: x[0])
+
+        # Next 6 hours window
+        upcoming_hours = [h for h in all_hours if h[2] >= h[3]][:6]
+        next_6h_metrics = self._compute_rain_metrics([h[1] for h in upcoming_hours])
+
+        # Tomorrow and day after tomorrow (by date)
+        tomorrow_hours = [h for h in all_hours if h[0].date() == tomorrow]
+        day_after_hours = [h for h in all_hours if h[0].date() == day_after_tomorrow]
+
+        return {
+            "next_6h": next_6h_metrics,
+            "tomorrow": self._compute_rain_metrics([h[1] for h in tomorrow_hours]),
+            "day_after_tomorrow": self._compute_rain_metrics(
+                [h[1] for h in day_after_hours]
+            ),
+        }
+
+    def _compute_rain_metrics(self, hourly_data: list) -> Dict[str, Any]:
+        """Compute rain metrics from hourly data."""
+        total_precip = 0.0
+        max_precip = 0.0
+        max_pop = 0
+        rain_hours = 0
+
+        for hour in hourly_data:
+            try:
+                precip = float(hour.get("precip", 0))
+                pop = int(hour.get("pop", "0") or 0)
+            except (ValueError, TypeError):
+                precip = 0.0
+                pop = 0
+
+            total_precip += precip
+            max_precip = max(max_precip, precip)
+            max_pop = max(max_pop, pop)
+
+            if precip >= RAIN_LIGHT_THRESHOLD:
+                rain_hours += 1
+
+        rain_level = self._get_rain_level(max_precip)
+        will_rain = rain_hours > 0
+
+        return {
+            "will_rain": will_rain,
+            "rain_level": rain_level,
+            "rain_hours": rain_hours,
+            "total_precipitation": round(total_precip, 2),
+            "max_hourly_precipitation": round(max_precip, 2),
+            "max_precipitation_probability": max_pop,
+        }
+
+    def _get_rain_level(self, max_precip: float) -> str:
+        """Get rain level name based on max hourly precipitation."""
+        if max_precip >= RAIN_STORM_THRESHOLD:
+            return "暴雨"
+        if max_precip >= RAIN_HEAVY_THRESHOLD:
+            return "大雨"
+        if max_precip >= RAIN_MODERATE_THRESHOLD:
+            return "中雨"
+        if max_precip >= RAIN_LIGHT_THRESHOLD:
+            return "小雨"
+        return "无雨"

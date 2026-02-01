@@ -6,7 +6,7 @@
   "dependencies": ["http"],
   "codeowners": ["@renhai-lab"],
   "requirements": ["requests", "loguru"],
-  "version": "0.1.6",
+  "version": "0.1.7",
   "iot_class": "cloud_polling",
   "config_flow": true
 } 

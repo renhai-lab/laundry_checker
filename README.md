@@ -26,6 +26,7 @@
   - 更新间隔
 - **新增：提供未来三天详细天气预报**
 - **新增：空气质量检测，灰尘污染大时不建议晾衣**
+- **新增：降雨提醒传感器（6小时内/明天/后天）**
 
 ## 安装
 
@@ -97,6 +98,18 @@
     - 详细的多天预报信息
     - 未来几天的晾衣建议
 
+- 传感器：降雨提醒
+  - `sensor.laundry_checker_rain_within_6h`：6小时内是否下雨
+  - `sensor.laundry_checker_rain_tomorrow`：明天是否下雨
+  - `sensor.laundry_checker_rain_day_after_tomorrow`：后天是否下雨
+  - 状态：`rain` / `no_rain`
+  - 常用属性：
+    - `rain_level`：降雨等级（无雨/小雨/中雨/大雨/暴雨）
+    - `rain_hours`：窗口内预计下雨小时数
+    - `total_precipitation`：窗口内累计降雨量（mm）
+    - `max_hourly_precipitation`：窗口内最大单小时降雨量（mm）
+    - `max_precipitation_probability`：窗口内最大降雨概率（%）
+
 ## 自动化示例
 
 ### 基本通知示例
@@ -150,6 +163,39 @@ automation:
           title: "洗衣天气预报 (未来三天)"
           message: "{{ state_attr('binary_sensor.laundry_checker_tomorrow_s_laundry_advice', 'detailed_message') }}"
 ```
+
+### 降雨提醒
+
+以下示例会在 **6小时内** 可能出现 **中雨及以上** 或 **持续性降雨** 时：
+
+```yaml
+automation:
+  - alias: "下雨提醒罩雨布"
+    description: "中雨及以上或持续降雨时提醒罩雨布"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.laundry_checker_rain_within_6h
+        to: "rain"
+    condition:
+      - condition: template
+        value_template: >
+          {% set level = state_attr('sensor.laundry_checker_rain_within_6h', 'rain_level') %}
+          {% set hours = state_attr('sensor.laundry_checker_rain_within_6h', 'rain_hours')|int(0) %}
+          {% set total = state_attr('sensor.laundry_checker_rain_within_6h', 'total_precipitation')|float(0) %}
+          {{ level in ['中雨','大雨','暴雨'] or (hours >= 2 and total >= 3) }}
+    action:
+      - service: notify.all_family_devices
+        data:
+          title: "⚠️ 可能下雨"
+          message: >-
+            {% set level = state_attr('sensor.laundry_checker_rain_within_6h', 'rain_level') %}
+            {% set hours = state_attr('sensor.laundry_checker_rain_within_6h', 'rain_hours')|int(0) %}
+            {% set total = state_attr('sensor.laundry_checker_rain_within_6h', 'total_precipitation')|float(0) %}
+            6小时内预计 {{ level }}，累计 {{ total }} mm，降雨小时数 {{ hours }}。
+```
+
+> 提示：降雨等级按逐小时累计降水量分级（单位：mm）。如需更敏感/更宽松，可调整模板条件。
 
 ## 常见问题 (FAQ)
 

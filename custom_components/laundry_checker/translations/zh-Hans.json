@@ -109,6 +109,15 @@
         "sensor": {
             "estimated_drying_time": {
                 "name": "预计晾干时间"
+            },
+            "rain_within_6h": {
+                "name": "6小时内是否下雨"
+            },
+            "rain_tomorrow": {
+                "name": "明天是否下雨"
+            },
+            "rain_day_after_tomorrow": {
+                "name": "后天是否下雨"
             }
         }
     }

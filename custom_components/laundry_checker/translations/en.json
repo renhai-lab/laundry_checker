@@ -51,5 +51,26 @@
                 }
             }
         }
+    },
+    "entity": {
+        "binary_sensor": {
+            "laundry_advice": {
+                "name": "Laundry Advice"
+            }
+        },
+        "sensor": {
+            "estimated_drying_time": {
+                "name": "Estimated Drying Time"
+            },
+            "rain_within_6h": {
+                "name": "Rain Within 6 Hours"
+            },
+            "rain_tomorrow": {
+                "name": "Rain Tomorrow"
+            },
+            "rain_day_after_tomorrow": {
+                "name": "Rain Day After Tomorrow"
+            }
+        }
     }
 } 

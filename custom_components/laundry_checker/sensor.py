@@ -16,6 +16,15 @@ from .const import (
     DOMAIN,
     ATTR_ESTIMATED_DRYING_TIME,
     DRYING_TIME_SENSOR_NAME,
+    RAIN_WITHIN_6H_SENSOR_NAME,
+    RAIN_TOMORROW_SENSOR_NAME,
+    RAIN_DAY_AFTER_TOMORROW_SENSOR_NAME,
+    ATTR_WILL_RAIN,
+    ATTR_RAIN_LEVEL,
+    ATTR_RAIN_HOURS,
+    ATTR_TOTAL_PRECIP,
+    ATTR_MAX_HOURLY_PRECIP,
+    ATTR_RAIN_MAX_POP,
 )
 from .coordinator import LaundryCheckerDataUpdateCoordinator
 
@@ -27,7 +36,33 @@ async def async_setup_entry(
 ) -> None:
     """Set up Laundry Checker sensor based on a config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities([LaundryDryingTimeSensor(coordinator, entry)], True)
+    async_add_entities(
+        [
+            LaundryDryingTimeSensor(coordinator, entry),
+            RainForecastSensor(
+                coordinator,
+                entry,
+                "next_6h",
+                RAIN_WITHIN_6H_SENSOR_NAME,
+                "rain_within_6h",
+            ),
+            RainForecastSensor(
+                coordinator,
+                entry,
+                "tomorrow",
+                RAIN_TOMORROW_SENSOR_NAME,
+                "rain_tomorrow",
+            ),
+            RainForecastSensor(
+                coordinator,
+                entry,
+                "day_after_tomorrow",
+                RAIN_DAY_AFTER_TOMORROW_SENSOR_NAME,
+                "rain_day_after_tomorrow",
+            ),
+        ],
+        True,
+    )
 
 
 class LaundryDryingTimeSensor(CoordinatorEntity, SensorEntity):
@@ -74,6 +109,68 @@ class LaundryDryingTimeSensor(CoordinatorEntity, SensorEntity):
             "has_precipitation": stats.get("has_precipitation", False),
             "max_pop": stats.get("max_pop", 0),
             "weather_conditions": ", ".join(stats.get("weather_conditions", [])),
+        }
+
+    @property
+    def device_info(self) -> Dict[str, Any]:
+        """Return device information about this entity."""
+        return {
+            "identifiers": {(DOMAIN, self._entry.entry_id)},
+            "name": "Laundry Checker",
+            "manufacturer": "Custom Integration",
+            "model": "Laundry Checker",
+            "sw_version": "0.1.0",
+        }
+
+
+class RainForecastSensor(CoordinatorEntity, SensorEntity):
+    """Representation of a rain forecast sensor."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:weather-rainy"
+
+    def __init__(
+        self,
+        coordinator: LaundryCheckerDataUpdateCoordinator,
+        entry: ConfigEntry,
+        period_key: str,
+        name: str,
+        unique_id_suffix: str,
+    ) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator)
+        self._entry = entry
+        self._period_key = period_key
+        self._attr_name = name
+        self._attr_unique_id = f"{entry.entry_id}_{unique_id_suffix}"
+
+    @property
+    def native_value(self) -> Optional[str]:
+        """Return the native value of the sensor."""
+        if not self.coordinator.data:
+            return None
+        forecast = self.coordinator.data.get("rain_forecast", {}).get(self._period_key)
+        if not forecast:
+            return None
+        return "rain" if forecast.get("will_rain") else "no_rain"
+
+    @property
+    def extra_state_attributes(self) -> Dict[str, Any]:
+        """Return rain forecast attributes."""
+        if not self.coordinator.data:
+            return {}
+
+        forecast = self.coordinator.data.get("rain_forecast", {}).get(self._period_key)
+        if not forecast:
+            return {}
+
+        return {
+            ATTR_WILL_RAIN: forecast.get("will_rain", False),
+            ATTR_RAIN_LEVEL: forecast.get("rain_level", "无雨"),
+            ATTR_RAIN_HOURS: forecast.get("rain_hours", 0),
+            ATTR_TOTAL_PRECIP: forecast.get("total_precipitation", 0),
+            ATTR_MAX_HOURLY_PRECIP: forecast.get("max_hourly_precipitation", 0),
+            ATTR_RAIN_MAX_POP: forecast.get("max_precipitation_probability", 0),
         }
 
     @property
