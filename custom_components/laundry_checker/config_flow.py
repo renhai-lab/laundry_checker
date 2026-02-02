@@ -309,6 +309,33 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_PREFERRED_END_HOUR, default=DEFAULT_PREFERRED_END_HOUR
                 ): vol.All(vol.Coerce(int), vol.Range(min=0, max=23)),
+                vol.Required(
+                    CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=24)),
+                vol.Required(
+                    CONF_UNSUITABLE_WEATHER_TYPES,
+                    default=DEFAULT_UNSUITABLE_WEATHER_TYPES,
+                ): cv.multi_select(DEFAULT_UNSUITABLE_WEATHER_TYPES),
+                vol.Required(
+                    CONF_RAIN_LIGHT_THRESHOLD,
+                    default=DEFAULT_RAIN_LIGHT_THRESHOLD,
+                ): vol.All(vol.Coerce(float), vol.Range(min=0, max=50)),
+                vol.Required(
+                    CONF_RAIN_MODERATE_THRESHOLD,
+                    default=DEFAULT_RAIN_MODERATE_THRESHOLD,
+                ): vol.All(vol.Coerce(float), vol.Range(min=0, max=50)),
+                vol.Required(
+                    CONF_RAIN_HEAVY_THRESHOLD,
+                    default=DEFAULT_RAIN_HEAVY_THRESHOLD,
+                ): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
+                vol.Required(
+                    CONF_RAIN_STORM_THRESHOLD,
+                    default=DEFAULT_RAIN_STORM_THRESHOLD,
+                ): vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
+                vol.Required(
+                    CONF_RAIN_WORK_COMMUTE_HOURS,
+                    default=DEFAULT_RAIN_WORK_COMMUTE_HOURS,
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=24)),
             }
         )
 
@@ -346,7 +373,7 @@ class LaundryCheckerOptionsFlow(config_entries.OptionsFlow):
 
     def __init__(self, config_entry):
         """Initialize options flow."""
-        self.config_entry = config_entry
+        self._config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
         """Handle options flow."""

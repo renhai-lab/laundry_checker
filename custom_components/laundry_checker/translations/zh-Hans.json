@@ -55,7 +55,14 @@
                     "max_aqi": "最大可接受空气质量指数 (AQI > 100为轻度污染)",
                     "start_hour": "开始晾晒时间（几点）",
                     "end_hour": "结束晾晒时间（几点）",
-                    "preferred_end_hour": "理想收衣时间（几点）"
+                    "preferred_end_hour": "理想收衣时间（几点）",
+                    "scan_interval": "天气检查间隔 (小时)",
+                    "unsuitable_weather_types": "避免晾晒的天气类型",
+                    "rain_light_threshold": "小雨阈值 (毫米/小时)",
+                    "rain_moderate_threshold": "中雨阈值 (毫米/小时)",
+                    "rain_heavy_threshold": "大雨阈值 (毫米/小时)",
+                    "rain_storm_threshold": "暴雨阈值 (毫米/小时)",
+                    "rain_work_commute_hours": "上班通勤窗口小时数"
                 }
             }
         },
@@ -72,37 +79,37 @@
         "abort": {
             "already_configured": "设备已配置",
             "reauth_successful": "重新认证成功"
-        },
-        "options": {
-            "step": {
-                "init": {
-                    "title": "洗衣检查器选项",
-                    "description": "配置洗衣检查器选项",
-                    "data": {
-                        "location": "自定义位置 (经纬度)",
-                        "max_suitable_humidity": "最大晾晒湿度 (%)",
-                        "min_suitable_hours": "最少连续晾晒小时数",
-                        "max_pop": "最大可接受降水概率 (%)",
-                        "max_aqi": "最大可接受空气质量指数 (AQI)",
-                        "start_hour": "允许的最早晾晒时间 (小时)",
-                        "end_hour": "允许的最晚晾晒时间 (小时)",
-                        "preferred_end_hour": "期望的最晚收衣时间 (小时)",
-                        "unsuitable_weather_types": "避免晾晒的天气类型",
-                        "scan_interval": "天气检查间隔 (小时)",
-                        "rain_light_threshold": "小雨阈值 (毫米/小时)",
-                        "rain_moderate_threshold": "中雨阈值 (毫米/小时)",
-                        "rain_heavy_threshold": "大雨阈值 (毫米/小时)",
-                        "rain_storm_threshold": "暴雨阈值 (毫米/小时)",
-                        "rain_work_commute_hours": "上班通勤窗口小时数"
-                    }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "洗衣检查器选项",
+                "description": "配置洗衣检查器选项",
+                "data": {
+                    "location": "自定义位置 (经纬度)",
+                    "max_suitable_humidity": "最大晾晒湿度 (%)",
+                    "min_suitable_hours": "最少连续晾晒小时数",
+                    "max_pop": "最大可接受降水概率 (%)",
+                    "max_aqi": "最大可接受空气质量指数 (AQI)",
+                    "start_hour": "允许的最早晾晒时间 (小时)",
+                    "end_hour": "允许的最晚晾晒时间 (小时)",
+                    "preferred_end_hour": "期望的最晚收衣时间 (小时)",
+                    "unsuitable_weather_types": "避免晾晒的天气类型",
+                    "scan_interval": "天气检查间隔 (小时)",
+                    "rain_light_threshold": "小雨阈值 (毫米/小时)",
+                    "rain_moderate_threshold": "中雨阈值 (毫米/小时)",
+                    "rain_heavy_threshold": "大雨阈值 (毫米/小时)",
+                    "rain_storm_threshold": "暴雨阈值 (毫米/小时)",
+                    "rain_work_commute_hours": "上班通勤窗口小时数"
                 }
-            },
-            "error": {
-                "invalid_location_format": "位置格式无效。请输入有效的经纬度坐标，例如 '120.15,30.28'。",
-                "invalid_hours_format": "小时格式无效。请输入 0 到 23 之间的整数。",
-                "invalid_percentage_format": "百分比格式无效。请输入 0 到 100 之间的数字。",
-                "invalid_interval_format": "间隔格式无效。请输入正数。"
             }
+        },
+        "error": {
+            "invalid_location_format": "位置格式无效。请输入有效的经纬度坐标，例如 '120.15,30.28'。",
+            "invalid_hours_format": "小时格式无效。请输入 0 到 23 之间的整数。",
+            "invalid_percentage_format": "百分比格式无效。请输入 0 到 100 之间的数字。",
+            "invalid_interval_format": "间隔格式无效。请输入正数。"
         }
     },
     "entity": {

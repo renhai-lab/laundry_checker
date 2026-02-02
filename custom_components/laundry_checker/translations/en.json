@@ -27,7 +27,14 @@
                     "max_aqi": "Maximum Acceptable AQI (>100 is light pollution)",
                     "start_hour": "Start Hour",
                     "end_hour": "End Hour",
-                    "preferred_end_hour": "Preferred Collection Hour"
+                    "preferred_end_hour": "Preferred Collection Hour",
+                    "scan_interval": "Update Interval (hours)",
+                    "unsuitable_weather_types": "Unsuitable Weather Types",
+                    "rain_light_threshold": "Light Rain Threshold (mm/h)",
+                    "rain_moderate_threshold": "Moderate Rain Threshold (mm/h)",
+                    "rain_heavy_threshold": "Heavy Rain Threshold (mm/h)",
+                    "rain_storm_threshold": "Storm Threshold (mm/h)",
+                    "rain_work_commute_hours": "Work Commute Window Hours"
                 }
             }
         },
