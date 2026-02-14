@@ -6,7 +6,7 @@
   "dependencies": ["http"],
   "codeowners": ["@renhai-lab"],
   "requirements": ["requests", "loguru", "pypinyin"],
-  "version": "0.1.12",
+  "version": "0.1.13",
   "iot_class": "cloud_polling",
   "config_flow": true
 } 
