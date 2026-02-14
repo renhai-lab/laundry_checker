@@ -365,19 +365,30 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
             response: requests.Response, api_name: str
         ) -> Dict:
             """Validate QWeather response and map errors."""
-            try:
-                response.raise_for_status()
-            except requests.exceptions.HTTPError as http_err:
-                status = http_err.response.status_code if http_err.response else None
-                if status == 401:
-                    raise ConfigEntryAuthFailed(
-                        f"{api_name} 认证失败 (HTTP 401)"
-                    ) from http_err
-                raise UpdateFailed(
-                    f"{api_name} HTTP {status} 错误: {http_err}"
-                ) from http_err
+            # 检查HTTP状态码
+            if response.status_code != 200:
+                _LOGGER.error(
+                    "%s HTTP错误 %s: %s",
+                    api_name,
+                    response.status_code,
+                    response.text[:200],
+                )
+                if response.status_code == 401:
+                    raise ConfigEntryAuthFailed(f"{api_name} 认证失败 (HTTP 401)")
+                raise UpdateFailed(f"{api_name} HTTP {response.status_code} 错误")
 
-            data = response.json()
+            # 尝试解析JSON
+            try:
+                data = response.json()
+            except ValueError as json_err:
+                _LOGGER.error(
+                    "%s 返回的不是有效的JSON: %s. 响应: %s",
+                    api_name,
+                    json_err,
+                    response.text[:200],
+                )
+                raise UpdateFailed(f"{api_name} 返回无效的JSON响应") from json_err
+
             code = str(data.get("code")) if data.get("code") is not None else None
             message = data.get("message", "N/A")
 
@@ -477,8 +488,26 @@ class LaundryCheckerDataUpdateCoordinator(DataUpdateCoordinator):
                 "正在请求和风天气空气质量API: %s, 参数: %s", air_quality_url, params
             )
             response = requests.get(air_quality_url, params=params, timeout=10)
-            response.raise_for_status()
-            data = response.json()
+
+            # 检查HTTP状态码
+            if response.status_code != 200:
+                _LOGGER.error(
+                    "空气质量API HTTP错误 %s: %s",
+                    response.status_code,
+                    response.text[:200],
+                )
+                return None
+
+            # 尝试解析JSON
+            try:
+                data = response.json()
+            except ValueError as json_err:
+                _LOGGER.error(
+                    "空气质量API返回的不是有效的JSON: %s. 响应: %s",
+                    json_err,
+                    response.text[:200],
+                )
+                return None
 
             if data.get("code") == "200":
                 for day_data in data.get("daily", []):

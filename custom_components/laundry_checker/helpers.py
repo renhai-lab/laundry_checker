@@ -13,3 +13,33 @@ def normalize_api_host(api_host: str) -> str:
         host = f"https://{host}"
 
     return host.rstrip("/")
+
+
+def validate_coordinates(longitude: float, latitude: float) -> None:
+    """验证经纬度坐标是否在有效范围内。
+
+    Args:
+        longitude: 经度值
+        latitude: 纬度值
+
+    Raises:
+        ValueError: 如果坐标超出有效范围
+    """
+    if not -180 <= longitude <= 180:
+        raise ValueError(f"Longitude must be between -180 and 180, got {longitude}")
+    if not -90 <= latitude <= 90:
+        raise ValueError(f"Latitude must be between -90 and 90, got {latitude}")
+
+
+def format_location(longitude: float, latitude: float) -> str:
+    """格式化经纬度为QWeather API所需的字符串格式。
+
+    Args:
+        longitude: 经度值
+        latitude: 纬度值
+
+    Returns:
+        格式化的位置字符串: "longitude,latitude"
+    """
+    # 保留最多6位小数（GPS标准精度约0.1米）
+    return f"{longitude:.6f},{latitude:.6f}".rstrip("0").rstrip(".")

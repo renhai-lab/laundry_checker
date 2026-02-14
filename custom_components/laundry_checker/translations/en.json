@@ -36,16 +36,56 @@
                     "rain_storm_threshold": "Storm Threshold (mm/h)",
                     "rain_work_commute_hours": "Work Commute Window Hours"
                 }
+            },
+            "location_type": {
+                "title": "Select Location Source",
+                "description": "Please select the location source you want to use",
+                "data": {
+                    "location_type": "Location Source"
+                },
+                "menu_options": {
+                    "ha_location": "Use Home Assistant Default Location",
+                    "city_search": "Search City",
+                    "manual_coordinates": "Manual Coordinates Input"
+                }
+            },
+            "city_search": {
+                "title": "Search City",
+                "description": "Please enter the city name to search",
+                "data": {
+                    "city": "City Name"
+                }
+            },
+            "city_select": {
+                "title": "Select City",
+                "description": "Please select a city from the search results",
+                "data": {
+                    "city_id": "City"
+                }
+            },
+            "manual_coordinates": {
+                "title": "Manual Coordinates Input",
+                "description": "Please enter the coordinates of your location (e.g., Shanghai: lon 121.47, lat 31.23)",
+                "data": {
+                    "longitude": "Longitude",
+                    "latitude": "Latitude"
+                }
             }
         },
         "error": {
             "unknown": "Unknown error",
             "invalid_api_key": "Invalid API key",
             "invalid_location": "Invalid location coordinates",
-            "invalid_api_host": "Invalid API Host URL"
+            "invalid_api_host": "Invalid API Host URL",
+            "city_not_found": "No matching cities found, please check the city name or try using Pinyin/English",
+            "api_error": "QWeather API returned an error, please try again later",
+            "network_error": "Network connection failed, please check network settings",
+            "invalid_coordinates": "Invalid coordinate format, please enter valid numbers",
+            "coordinates_out_of_range": "Coordinates out of valid range (longitude: -180 to 180, latitude: -90 to 90)"
         },
         "abort": {
-            "already_configured": "Device is already configured"
+            "already_configured": "Device is already configured",
+            "reauth_successful": "Reauthentication successful"
         }
     },
     "options": {

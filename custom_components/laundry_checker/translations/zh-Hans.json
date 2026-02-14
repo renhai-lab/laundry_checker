@@ -28,7 +28,8 @@
                 },
                 "menu_options": {
                     "ha_location": "使用Home Assistant默认位置",
-                    "city_search": "搜索城市"
+                    "city_search": "搜索城市",
+                    "manual_coordinates": "手动输入经纬度坐标"
                 }
             },
             "city_search": {
@@ -43,6 +44,14 @@
                 "description": "请从搜索结果中选择城市",
                 "data": {
                     "city_id": "城市"
+                }
+            },
+            "manual_coordinates": {
+                "title": "手动输入坐标",
+                "description": "请输入位置的经纬度坐标（例如上海市：经度 121.47，纬度 31.23）",
+                "data": {
+                    "longitude": "经度",
+                    "latitude": "纬度"
                 }
             },
             "parameters": {
@@ -74,7 +83,13 @@
             "invalid_hours_format": "小时格式无效。请输入 0 到 23 之间的整数。",
             "invalid_percentage_format": "百分比格式无效。请输入 0 到 100 之间的数字。",
             "invalid_interval_format": "间隔格式无效。请输入正数。",
-            "invalid_api_host": "API Host 无效，请输入完整的 URL"
+            "invalid_api_host": "API Host 无效，请输入完整的 URL",
+            "city_not_found": "未找到匹配的城市，请检查城市名称或尝试使用拼音/英文",
+            "api_error": "和风天气API返回错误，请稍后重试",
+            "network_error": "网络连接失败，请检查网络设置",
+            "invalid_coordinates": "经纬度格式无效，请输入有效的数字",
+            "coordinates_out_of_range": "经纬度超出有效范围（经度：-180至180，纬度：-90至90）",
+            "invalid_api_key": "无效的和风天气 API 密钥"
         },
         "abort": {
             "already_configured": "设备已配置",

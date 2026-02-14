@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 import voluptuous as vol
 import requests
@@ -48,11 +49,15 @@ from .const import (
     DEFAULT_RAIN_STORM_THRESHOLD,
     DEFAULT_RAIN_WORK_COMMUTE_HOURS,
 )
-from .helpers import normalize_api_host
+from .helpers import normalize_api_host, validate_coordinates, format_location
+
+_LOGGER = logging.getLogger(__name__)
 
 CONF_CITY = "city"
 CONF_MANUAL_LOCATION = "manual_location"
 LOCATION_TYPE = "location_type"
+CONF_LONGITUDE = "longitude"
+CONF_LATITUDE = "latitude"
 
 
 async def validate_api_key(hass: HomeAssistant, api_key: str, api_host: str) -> bool:
@@ -68,33 +73,101 @@ async def validate_api_key(hass: HomeAssistant, api_key: str, api_host: str) -> 
         response = await hass.async_add_executor_job(
             lambda: requests.get(url, params=params, timeout=10)
         )
-        data = response.json()
+
+        # 检查HTTP状态码
+        if response.status_code != 200:
+            _LOGGER.error(
+                "HTTP error %s while validating API key: %s",
+                response.status_code,
+                response.text[:200],
+            )
+            return False
+
+        # 尝试解析JSON
+        try:
+            data = response.json()
+        except ValueError as json_err:
+            _LOGGER.error(
+                "Invalid JSON response while validating API key: %s. Response: %s",
+                json_err,
+                response.text[:200],
+            )
+            return False
+
         return data.get("code") == "200"
-    except Exception:
+    except Exception as err:
+        _LOGGER.error("Error validating API key: %s", err)
         return False
 
 
 async def search_city(
     hass: HomeAssistant, api_key: str, api_host: str, city: str
-) -> list[dict]:
-    """搜索城市信息。"""
-    base_url = normalize_api_host(api_host)
-    url = f"{base_url}/v2/city/lookup"
+) -> tuple[list[dict], str | None]:
+    """搜索城市信息。
+
+    返回:
+        tuple: (城市列表, 错误码)
+        错误码可能的值: None(成功), 'network_error', 'api_error', 'city_not_found'
+    """
+    # GeoAPI使用固定的公共域名，不使用用户的独立API Host
+    # 用户的独立API Host仅用于天气数据API和空气质量API
+    url = "https://geoapi.qweather.com/v2/city/lookup"
     params = {
         "location": city,
         "key": api_key,
     }
 
+    _LOGGER.debug("Searching city: %s with API: %s", city, url)
+
     try:
         response = await hass.async_add_executor_job(
             lambda: requests.get(url, params=params, timeout=10)
         )
-        data = response.json()
-        if data.get("code") == "200":
-            return data.get("location", [])
-        return []
-    except Exception:
-        return []
+
+        # 检查HTTP状态码
+        _LOGGER.debug("HTTP status code: %s", response.status_code)
+        if response.status_code != 200:
+            _LOGGER.error(
+                "HTTP error %s while searching city %s: %s",
+                response.status_code,
+                city,
+                response.text[:200],
+            )
+            return [], "network_error"
+
+        # 尝试解析JSON
+        try:
+            data = response.json()
+        except ValueError as json_err:
+            _LOGGER.error(
+                "Invalid JSON response for city %s: %s. Response text: %s",
+                city,
+                json_err,
+                response.text[:200],
+            )
+            return [], "api_error"
+
+        _LOGGER.debug("City search response: %s", data)
+
+        code = data.get("code")
+        if code == "200":
+            locations = data.get("location", [])
+            if not locations:
+                _LOGGER.warning("No cities found for: %s", city)
+                return [], "city_not_found"
+            _LOGGER.info("Found %d cities for: %s", len(locations), city)
+            return locations, None
+        else:
+            _LOGGER.error(
+                "QWeather API returned error code: %s for city: %s", code, city
+            )
+            return [], "api_error"
+    except requests.RequestException as err:
+        _LOGGER.error("Network error while searching city %s: %s", city, err)
+        return [], "network_error"
+    except Exception as err:
+        _LOGGER.exception("Unexpected error while searching city %s: %s", city, err)
+        return [], "network_error"
 
 
 async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
@@ -125,6 +198,8 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._cities = []
         self._use_ha_location = False
         self._api_host = DEFAULT_QWEATHER_API_HOST
+        self._manual_longitude: float | None = None
+        self._manual_latitude: float | None = None
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -185,6 +260,9 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 self._use_ha_location = True
                 # 使用HA位置，直接进入配置参数步骤
                 return await self.async_step_parameters()
+            elif user_input[LOCATION_TYPE] == "manual_coordinates":
+                # 进入手动坐标输入步骤
+                return await self.async_step_manual_coordinates()
             else:
                 # 进入城市搜索步骤
                 return await self.async_step_city_search()
@@ -192,6 +270,7 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         options = {
             "ha_location": "使用Home Assistant默认位置",
             "city_search": "搜索城市",
+            "manual_coordinates": "手动输入经纬度坐标",
         }
 
         schema = vol.Schema(
@@ -210,13 +289,17 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             city = user_input[CONF_CITY]
-            cities = await search_city(self.hass, self._api_key, self._api_host, city)
+            cities, error_code = await search_city(
+                self.hass, self._api_key, self._api_host, city
+            )
 
-            if not cities:
-                errors["base"] = "city_not_found"
-            else:
+            if error_code:
+                errors["base"] = error_code
+            elif cities:
                 self._cities = cities
                 return await self.async_step_city_select()
+            else:
+                errors["base"] = "city_not_found"
 
         schema = vol.Schema({vol.Required(CONF_CITY): str})
 
@@ -258,6 +341,60 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         return self.async_show_form(step_id="city_select", data_schema=schema)
+
+    async def async_step_manual_coordinates(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """手动输入经纬度坐标的步骤。"""
+        errors = {}
+
+        if user_input is not None:
+            try:
+                longitude = float(user_input[CONF_LONGITUDE])
+                latitude = float(user_input[CONF_LATITUDE])
+
+                # 验证坐标范围
+                validate_coordinates(longitude, latitude)
+
+                # 存储坐标信息
+                self._entry_data[CONF_LOCATION] = format_location(longitude, latitude)
+                self._entry_data[CONF_USE_HA_LOCATION] = False
+
+                _LOGGER.info(
+                    "Manual coordinates set: %s", self._entry_data[CONF_LOCATION]
+                )
+
+                # 进入配置参数步骤
+                return await self.async_step_parameters()
+
+            except ValueError as err:
+                _LOGGER.error("Invalid coordinates input: %s", err)
+                if "range" in str(err).lower():
+                    errors["base"] = "coordinates_out_of_range"
+                else:
+                    errors["base"] = "invalid_coordinates"
+            except Exception as err:
+                _LOGGER.exception("Unexpected error in manual coordinates: %s", err)
+                errors["base"] = "invalid_coordinates"
+
+        schema = vol.Schema(
+            {
+                vol.Required(
+                    CONF_LONGITUDE,
+                    description={"suggested_value": "121.47"},
+                ): vol.Coerce(float),
+                vol.Required(
+                    CONF_LATITUDE,
+                    description={"suggested_value": "31.23"},
+                ): vol.Coerce(float),
+            }
+        )
+
+        return self.async_show_form(
+            step_id="manual_coordinates",
+            data_schema=schema,
+            errors=errors,
+        )
 
     async def async_step_parameters(
         self, user_input: dict[str, Any] | None = None
