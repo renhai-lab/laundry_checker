@@ -6,6 +6,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -13,6 +14,7 @@ from homeassistant.helpers.update_coordinator import (
 
 from .const import (
     DOMAIN,
+    CONF_LOCATION_SUFFIX,
     BINARY_SENSOR_NAME,
     ATTR_SUITABLE_HOURS,
     ATTR_AVERAGE_HUMIDITY,
@@ -32,6 +34,24 @@ from .const import (
 from .coordinator import LaundryCheckerDataUpdateCoordinator
 
 
+def _apply_location_suffix(
+    hass: HomeAssistant, entry: ConfigEntry, entities: list[BinarySensorEntity]
+) -> None:
+    """为实体entity_id添加位置后缀（仅当配置了后缀时）。"""
+    suffix = entry.data.get(CONF_LOCATION_SUFFIX)
+    if not suffix:
+        return
+
+    for entity in entities:
+        base_object_id = getattr(entity, "_object_id_base", None)
+        if not base_object_id:
+            continue
+        object_id = f"{DOMAIN}_{base_object_id}_{suffix}"
+        entity.entity_id = async_generate_entity_id(
+            "binary_sensor.{}", object_id, hass=hass
+        )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -39,13 +59,13 @@ async def async_setup_entry(
 ) -> None:
     """Set up the laundry checker binary sensors."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities(
-        [
-            LaundryCheckerBinarySensor(coordinator, entry),
-            TomorrowLaundryCheckerBinarySensor(coordinator, entry)
-        ],
-        True
-    )
+    entities = [
+        LaundryCheckerBinarySensor(coordinator, entry),
+        TomorrowLaundryCheckerBinarySensor(coordinator, entry),
+    ]
+
+    _apply_location_suffix(hass, entry, entities)
+    async_add_entities(entities, True)
 
 
 class LaundryCheckerBinarySensor(CoordinatorEntity, BinarySensorEntity):
@@ -63,6 +83,7 @@ class LaundryCheckerBinarySensor(CoordinatorEntity, BinarySensorEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_suitable_today"
+        self._object_id_base = "suitable_today"
 
     @property
     def is_on(self) -> bool:
@@ -98,7 +119,9 @@ class LaundryCheckerBinarySensor(CoordinatorEntity, BinarySensorEntity):
             attributes[ATTR_WIND_CONDITIONS] = ", ".join(stats["wind_conditions"])
 
         if "detailed_message" in self.coordinator.data:
-            attributes[ATTR_DETAILED_MESSAGE] = self.coordinator.data["detailed_message"]
+            attributes[ATTR_DETAILED_MESSAGE] = self.coordinator.data[
+                "detailed_message"
+            ]
 
         attributes["message"] = self.coordinator.data.get("message", "")
 
@@ -109,7 +132,7 @@ class LaundryCheckerBinarySensor(CoordinatorEntity, BinarySensorEntity):
         """Return device information about this entity."""
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "Laundry Checker",
+            "name": self._entry.title,
             "manufacturer": "Custom Integration",
             "model": "Laundry Checker",
             "sw_version": "0.1.0",
@@ -131,6 +154,7 @@ class TomorrowLaundryCheckerBinarySensor(CoordinatorEntity, BinarySensorEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_suitable_tomorrow"
+        self._object_id_base = "suitable_tomorrow"
 
     @property
     def is_on(self) -> bool:
@@ -179,7 +203,7 @@ class TomorrowLaundryCheckerBinarySensor(CoordinatorEntity, BinarySensorEntity):
         """Return device information about this entity."""
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "Laundry Checker",
+            "name": self._entry.title,
             "manufacturer": "Custom Integration",
             "model": "Laundry Checker",
             "sw_version": "0.1.0",

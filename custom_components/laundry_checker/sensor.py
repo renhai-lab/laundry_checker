@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.components.sensor import SensorEntity
+from homeassistant.helpers.entity import async_generate_entity_id
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -14,6 +15,7 @@ from homeassistant.helpers.update_coordinator import (
 
 from .const import (
     DOMAIN,
+    CONF_LOCATION_SUFFIX,
     ATTR_ESTIMATED_DRYING_TIME,
     DRYING_TIME_SENSOR_NAME,
     RAIN_WITHIN_6H_SENSOR_NAME,
@@ -32,49 +34,65 @@ from .coordinator import LaundryCheckerDataUpdateCoordinator
 _LOGGER = logging.getLogger(__name__)
 
 
+def _apply_location_suffix(
+    hass: HomeAssistant, entry: ConfigEntry, entities: list[SensorEntity]
+) -> None:
+    """为实体entity_id添加位置后缀（仅当配置了后缀时）。"""
+    suffix = entry.data.get(CONF_LOCATION_SUFFIX)
+    if not suffix:
+        return
+
+    for entity in entities:
+        base_object_id = getattr(entity, "_object_id_base", None)
+        if not base_object_id:
+            continue
+        object_id = f"{DOMAIN}_{base_object_id}_{suffix}"
+        entity.entity_id = async_generate_entity_id("sensor.{}", object_id, hass=hass)
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Laundry Checker sensor based on a config entry."""
     coordinator = hass.data[DOMAIN][entry.entry_id]["coordinator"]
-    async_add_entities(
-        [
-            LaundryDryingTimeSensor(coordinator, entry),
-            RainForecastSensor(
-                coordinator,
-                entry,
-                "next_6h",
-                RAIN_WITHIN_6H_SENSOR_NAME,
-                "rain_within_6h",
-                "rain_within_6h",
-            ),
-            RainForecastSensor(
-                coordinator,
-                entry,
-                "work_commute",
-                RAIN_WORK_COMMUTE_SENSOR_NAME,
-                "rain_work_commute",
-                "rain_work_commute",
-            ),
-            RainForecastSensor(
-                coordinator,
-                entry,
-                "tomorrow",
-                RAIN_TOMORROW_SENSOR_NAME,
-                "rain_tomorrow",
-                "rain_tomorrow",
-            ),
-            RainForecastSensor(
-                coordinator,
-                entry,
-                "day_after_tomorrow",
-                RAIN_DAY_AFTER_TOMORROW_SENSOR_NAME,
-                "rain_day_after_tomorrow",
-                "rain_day_after_tomorrow",
-            ),
-        ],
-        True,
-    )
+    entities = [
+        LaundryDryingTimeSensor(coordinator, entry),
+        RainForecastSensor(
+            coordinator,
+            entry,
+            "next_6h",
+            RAIN_WITHIN_6H_SENSOR_NAME,
+            "rain_within_6h",
+            "rain_within_6h",
+        ),
+        RainForecastSensor(
+            coordinator,
+            entry,
+            "work_commute",
+            RAIN_WORK_COMMUTE_SENSOR_NAME,
+            "rain_work_commute",
+            "rain_work_commute",
+        ),
+        RainForecastSensor(
+            coordinator,
+            entry,
+            "tomorrow",
+            RAIN_TOMORROW_SENSOR_NAME,
+            "rain_tomorrow",
+            "rain_tomorrow",
+        ),
+        RainForecastSensor(
+            coordinator,
+            entry,
+            "day_after_tomorrow",
+            RAIN_DAY_AFTER_TOMORROW_SENSOR_NAME,
+            "rain_day_after_tomorrow",
+            "rain_day_after_tomorrow",
+        ),
+    ]
+
+    _apply_location_suffix(hass, entry, entities)
+    async_add_entities(entities, True)
 
 
 class LaundryDryingTimeSensor(CoordinatorEntity, SensorEntity):
@@ -91,6 +109,7 @@ class LaundryDryingTimeSensor(CoordinatorEntity, SensorEntity):
         super().__init__(coordinator)
         self._entry = entry
         self._attr_unique_id = f"{entry.entry_id}_drying_time_today"
+        self._object_id_base = "drying_time_today"
 
     @property
     def native_value(self) -> Optional[float]:
@@ -128,7 +147,7 @@ class LaundryDryingTimeSensor(CoordinatorEntity, SensorEntity):
         """Return device information about this entity."""
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "Laundry Checker",
+            "name": self._entry.title,
             "manufacturer": "Custom Integration",
             "model": "Laundry Checker",
             "sw_version": "0.1.0",
@@ -157,6 +176,7 @@ class RainForecastSensor(CoordinatorEntity, SensorEntity):
         self._attr_name = name
         self._attr_unique_id = f"{entry.entry_id}_{unique_id_suffix}"
         self._attr_translation_key = translation_key
+        self._object_id_base = unique_id_suffix
 
     @property
     def native_value(self) -> Optional[str]:
@@ -192,7 +212,7 @@ class RainForecastSensor(CoordinatorEntity, SensorEntity):
         """Return device information about this entity."""
         return {
             "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "Laundry Checker",
+            "name": self._entry.title,
             "manufacturer": "Custom Integration",
             "model": "Laundry Checker",
             "sw_version": "0.1.0",

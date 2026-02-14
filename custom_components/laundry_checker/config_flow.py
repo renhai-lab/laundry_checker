@@ -15,6 +15,8 @@ import homeassistant.helpers.config_validation as cv
 from .const import (
     DOMAIN,
     CONF_LOCATION,
+    CONF_LOCATION_NAME,
+    CONF_LOCATION_SUFFIX,
     CONF_MAX_SUITABLE_HUMIDITY,
     CONF_MIN_SUITABLE_HOURS,
     CONF_MAX_POP,
@@ -49,7 +51,12 @@ from .const import (
     DEFAULT_RAIN_STORM_THRESHOLD,
     DEFAULT_RAIN_WORK_COMMUTE_HOURS,
 )
-from .helpers import normalize_api_host, validate_coordinates, format_location
+from .helpers import (
+    normalize_api_host,
+    validate_coordinates,
+    format_location,
+    build_location_suffix,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -325,6 +332,16 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     f"{selected_city['lon']},{selected_city['lat']}"
                 )
                 self._entry_data[CONF_USE_HA_LOCATION] = False
+                city_name = selected_city.get("name", "")
+                adm1 = selected_city.get("adm1", "")
+                adm2 = selected_city.get("adm2", "")
+                display_name = " ".join(
+                    part for part in [city_name, adm1, adm2] if part
+                )
+                self._entry_data[CONF_LOCATION_NAME] = display_name or city_name
+                self._entry_data[CONF_LOCATION_SUFFIX] = (
+                    f"city_{build_location_suffix(city_name)}"
+                )
 
                 # 进入配置参数步骤
                 return await self.async_step_parameters()
@@ -357,8 +374,14 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 validate_coordinates(longitude, latitude)
 
                 # 存储坐标信息
-                self._entry_data[CONF_LOCATION] = format_location(longitude, latitude)
+                formatted_location = format_location(longitude, latitude)
+                self._entry_data[CONF_LOCATION] = formatted_location
                 self._entry_data[CONF_USE_HA_LOCATION] = False
+                self._entry_data[CONF_LOCATION_NAME] = formatted_location
+                coord_suffix = formatted_location.replace(",", "_")
+                self._entry_data[CONF_LOCATION_SUFFIX] = (
+                    f"lat_lng_{build_location_suffix(coord_suffix)}"
+                )
 
                 _LOGGER.info(
                     "Manual coordinates set: %s", self._entry_data[CONF_LOCATION]
@@ -421,8 +444,14 @@ class LaundryCheckerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 data[CONF_LOCATION] = self._entry_data[CONF_LOCATION]
                 data[CONF_USE_HA_LOCATION] = False
 
+            title = "洗衣检查器"
+            if not self._use_ha_location:
+                location_name = self._entry_data.get(CONF_LOCATION_NAME)
+                if location_name:
+                    title = f"洗衣检查器 ({location_name})"
+
             # 创建配置条目
-            return self.async_create_entry(title="洗衣检查器", data=data)
+            return self.async_create_entry(title=title, data=data)
 
         schema = vol.Schema(
             {

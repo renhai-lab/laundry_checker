@@ -5,6 +5,8 @@ PLATFORMS = ["sensor", "binary_sensor"]
 
 # 配置选项
 CONF_LOCATION = "location"
+CONF_LOCATION_NAME = "location_name"  # 位置显示名称（用于集成title）
+CONF_LOCATION_SUFFIX = "location_suffix"  # 位置后缀（用于entity_id）
 CONF_MAX_SUITABLE_HUMIDITY = "max_suitable_humidity"
 CONF_MIN_SUITABLE_HOURS = "min_suitable_hours"
 CONF_MAX_POP = "max_pop"

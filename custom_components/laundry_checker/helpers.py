@@ -2,6 +2,13 @@
 
 from __future__ import annotations
 
+from homeassistant.util import slugify
+
+try:
+    from pypinyin import lazy_pinyin
+except ImportError:  # pragma: no cover - optional dependency
+    lazy_pinyin = None
+
 
 def normalize_api_host(api_host: str) -> str:
     """Return a normalized QWeather API host with scheme and without trailing slash."""
@@ -43,3 +50,14 @@ def format_location(longitude: float, latitude: float) -> str:
     """
     # 保留最多6位小数（GPS标准精度约0.1米）
     return f"{longitude:.6f},{latitude:.6f}".rstrip("0").rstrip(".")
+
+
+def build_location_suffix(text: str) -> str:
+    """基于文本构建适合entity_id的后缀。"""
+    if not text:
+        return "location"
+
+    if lazy_pinyin is not None:
+        text = "".join(lazy_pinyin(text))
+
+    return slugify(text) or "location"

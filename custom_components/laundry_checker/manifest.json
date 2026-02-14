@@ -5,7 +5,7 @@
   "issue_tracker": "https://github.com/renhai-lab/laundry_checker/issues",
   "dependencies": ["http"],
   "codeowners": ["@renhai-lab"],
-  "requirements": ["requests", "loguru"],
+  "requirements": ["requests", "loguru", "pypinyin"],
   "version": "0.1.12",
   "iot_class": "cloud_polling",
   "config_flow": true
