@@ -116,9 +116,8 @@ async def search_city(
         tuple: (城市列表, 错误码)
         错误码可能的值: None(成功), 'network_error', 'api_error', 'city_not_found'
     """
-    # GeoAPI使用固定的公共域名，不使用用户的独立API Host
-    # 用户的独立API Host仅用于天气数据API和空气质量API
-    url = "https://geoapi.qweather.com/v2/city/lookup"
+    # GeoAPI 和天气数据共用同一个 API Host
+    url = f"{normalize_api_host(api_host)}/v2/city/lookup"
     params = {
         "location": city,
         "key": api_key,
